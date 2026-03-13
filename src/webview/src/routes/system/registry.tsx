@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryState } from "nuqs";
 import {
   DEFAULT_UNIVERSAL_INTENT_SCHEME,
@@ -9,8 +9,10 @@ import {
   buildDeepLinkUrl,
   buildUniversalIntentUrl,
 } from "@shared/contracts";
+import { buildEnvKeys } from "@shared/app-identity";
 import type { DocsIndex, DocGroup } from "@shared/docs-contract";
 import type {
+  TopologyConfig,
   UniversalAction,
   UniversalCommand,
   UniversalConfig,
@@ -18,9 +20,15 @@ import type {
   UniversalEvent,
   UniversalPlatform,
   UniversalRoute,
+  UniversalStage,
   UniversalStorageTarget,
 } from "@shared/universal";
-import { DEFAULT_UNIVERSAL_CONFIG } from "@shared/universal";
+import {
+  DEFAULT_UNIVERSAL_CONFIG,
+  deriveDomain,
+  deriveStorageDomains,
+  getDomainIds,
+} from "@shared/universal";
 import { KvGrid } from "../../components/KvGrid";
 import { useAppContext } from "../../contexts/app-context";
 import { useHandlers } from "../../hooks/use-handlers";
@@ -47,13 +55,28 @@ const routeIsNavigable = (route: UniversalRoute): boolean =>
   !route.path.includes(":") &&
   !route.path.includes("$");
 
+const WEBVIEW_SERVER_URL_ENV_KEYS = buildEnvKeys("WEBVIEW_SERVER_URL");
+
+// ── Domain derivation (from shared topology engine) ─────────────────
+
+const domainOf = (id: string, topology: TopologyConfig, stage?: string): string =>
+  deriveDomain(id, topology, { stage }).domain;
+
+function DomainBadge({ domain }: { domain: string }) {
+  return <span className="domain-badge" data-domain={domain}>{domain}</span>;
+}
+
+// ── Component ──────────────────────────────────────────────
+
 function RegistryPage() {
   const handlers = useHandlers();
   const navigate = useNavigate();
   const { universalConfig, deepLinkBase, isWebview, state } = useAppContext();
 
   const config: UniversalConfig = universalConfig ?? DEFAULT_UNIVERSAL_CONFIG;
-  const appId = config.app.id ?? DEFAULT_UNIVERSAL_CONFIG.app.id ?? "atlassian";
+  const topology = config.topology ?? DEFAULT_UNIVERSAL_CONFIG.topology!;
+  const domainIds = useMemo(() => getDomainIds(topology), [topology]);
+  const appId = config.app.id ?? DEFAULT_UNIVERSAL_CONFIG.app.id ?? "work";
   const intentScheme =
     config.app.intentScheme ?? DEFAULT_UNIVERSAL_CONFIG.app.intentScheme ?? DEFAULT_UNIVERSAL_INTENT_SCHEME;
   const hasVsCodeApi = typeof (window as any).acquireVsCodeApi === "function";
@@ -75,7 +98,7 @@ function RegistryPage() {
   const entryPointsOpen = openSections.includes("entrypoints");
   const runtimeOpen = openSections.includes("runtime");
   const navigationOpen = openSections.includes("navigation");
-  const intentsOpen = openSections.includes("intents");
+  const actionsOpen = openSections.includes("actions");
   const operationsOpen = openSections.includes("operations");
   const signalsOpen = openSections.includes("signals");
   const preferencesOpen = openSections.includes("preferences");
@@ -138,7 +161,9 @@ function RegistryPage() {
     const settings = (fullConfig?.settings ?? null) as Record<string, unknown> | null;
     const env = (fullConfig?.env ?? null) as Record<string, unknown> | null;
     const fromSettings = settings ? safeString(settings.webviewServerUrl) : "";
-    const fromEnv = env ? safeString(env.ATLASSIAN_WEBVIEW_SERVER_URL) : "";
+    const fromEnv = env
+      ? WEBVIEW_SERVER_URL_ENV_KEYS.map((key) => safeString(env[key])).find(Boolean) ?? ""
+      : "";
     const raw = (fromSettings || fromEnv || "http://localhost:5173").trim();
     try {
       const url = new URL(raw.includes("://") ? raw : `http://${raw}`);
@@ -177,7 +202,7 @@ function RegistryPage() {
   }, []);
 
   const openCommandPalette = useCallback(() => {
-    window.dispatchEvent(new Event("atlassian:commandPalette"));
+    window.dispatchEvent(new Event("work:commandPalette"));
   }, []);
 
   const setSectionOpen = useCallback(
@@ -251,6 +276,33 @@ function RegistryPage() {
     [config.environments],
   );
 
+  const stages: UniversalStage[] = useMemo(
+    () =>
+      Object.values(config.stages ?? {})
+        .filter((s): s is UniversalStage => Boolean(s?.id))
+        .sort((a, b) => a.order - b.order),
+    [config.stages],
+  );
+
+  const routeMetaMap = ROUTE_META as Record<string, { stage?: string }>;
+
+  const [activeDomain, setActiveDomain] = useState<string | null>(null);
+
+  const domainCounts = useMemo(() => {
+    const counts: Record<string, { commands: number; actions: number; events: number; routes: number; storage: string[] }> = {};
+    for (const d of domainIds) counts[d] = { commands: 0, actions: 0, events: 0, routes: 0, storage: [] };
+    for (const cmd of commands) counts[domainOf(cmd.id, topology)]!.commands++;
+    for (const action of actions) counts[domainOf(action.id, topology)]!.actions++;
+    for (const evt of events) counts[domainOf(evt.id, topology)]!.events++;
+    for (const route of routes) {
+      counts[domainOf(route.id, topology, routeMetaMap[route.id]?.stage)]!.routes++;
+    }
+    for (const target of Object.values(config.storage?.targets ?? {}) as UniversalStorageTarget[]) {
+      for (const d of deriveStorageDomains(target.id, topology)) counts[d]?.storage.push(target.id);
+    }
+    return counts;
+  }, [commands, actions, events, routes, config.storage?.targets, topology, domainIds]);
+
   const storageTargets: UniversalStorageTarget[] = useMemo(
     () => Object.values(config.storage?.targets ?? {}) as UniversalStorageTarget[],
     [config.storage?.targets],
@@ -262,53 +314,54 @@ function RegistryPage() {
     filterEnabled ? `${filtered}/${total}` : `${total}`;
 
   const filteredRoutes: UniversalRoute[] = useMemo(() => {
-    if (!filterEnabled) return routes;
-    return routes.filter((route) =>
-      `${route.id} ${route.path}`.toLowerCase().includes(filterText),
-    );
-  }, [filterEnabled, filterText, routes]);
+    let result = routes;
+    if (activeDomain) result = result.filter((r) => domainOf(r.id, topology, routeMetaMap[r.id]?.stage) === activeDomain);
+    if (filterEnabled) result = result.filter((route) => `${route.id} ${route.path}`.toLowerCase().includes(filterText));
+    return result;
+  }, [activeDomain, filterEnabled, filterText, routes, routeMetaMap, topology]);
 
   const filteredActions: UniversalAction[] = useMemo(() => {
-    if (!filterEnabled) return actions;
-    return actions.filter((action) =>
+    let result = actions;
+    if (activeDomain) result = result.filter((a) => domainOf(a.id, topology) === activeDomain);
+    if (filterEnabled) result = result.filter((action) =>
       `${action.id} ${safeString(action.route)} ${safeString(action.rpc)} ${safeString(action.command)}`
-        .toLowerCase()
-        .includes(filterText),
-    );
-  }, [actions, filterEnabled, filterText]);
+        .toLowerCase().includes(filterText));
+    return result;
+  }, [actions, activeDomain, filterEnabled, filterText, topology]);
 
   const filteredCommands: UniversalCommand[] = useMemo(() => {
-    if (!filterEnabled) return commands;
-    return commands.filter((cmd) =>
-      `${cmd.id} ${cmd.kind} ${safeString(cmd.payloadSchema)}`.toLowerCase().includes(filterText),
-    );
-  }, [commands, filterEnabled, filterText]);
+    let result = commands;
+    if (activeDomain) result = result.filter((c) => domainOf(c.id, topology) === activeDomain);
+    if (filterEnabled) result = result.filter((cmd) =>
+      `${cmd.id} ${cmd.kind} ${safeString(cmd.payloadSchema)}`.toLowerCase().includes(filterText));
+    return result;
+  }, [commands, activeDomain, filterEnabled, filterText, topology]);
 
   const filteredEvents: UniversalEvent[] = useMemo(() => {
-    if (!filterEnabled) return events;
-    return events.filter((evt) =>
-      `${evt.id} ${evt.kind} ${safeString(evt.payloadSchema)}`.toLowerCase().includes(filterText),
-    );
-  }, [events, filterEnabled, filterText]);
+    let result = events;
+    if (activeDomain) result = result.filter((e) => domainOf(e.id, topology) === activeDomain);
+    if (filterEnabled) result = result.filter((evt) =>
+      `${evt.id} ${evt.kind} ${safeString(evt.payloadSchema)}`.toLowerCase().includes(filterText));
+    return result;
+  }, [events, activeDomain, filterEnabled, filterText, topology]);
 
   const filteredSettings = useMemo(() => {
     const all = Object.values(SETTINGS_REGISTRY).sort((a, b) => a.id.localeCompare(b.id));
-    if (!filterEnabled) return all;
-    return all.filter((setting) =>
+    let result = all;
+    if (filterEnabled) result = result.filter((setting) =>
       `${setting.id} ${setting.key} ${setting.type} ${(setting.envKeys ?? []).join(" ")} ${setting.description ?? ""}`
-        .toLowerCase()
-        .includes(filterText),
-    );
+        .toLowerCase().includes(filterText));
+    return result;
   }, [filterEnabled, filterText]);
 
   const filteredStorageTargets: UniversalStorageTarget[] = useMemo(() => {
-    if (!filterEnabled) return storageTargets;
-    return storageTargets.filter((target) =>
+    let result = storageTargets;
+    if (activeDomain) result = result.filter((t) => deriveStorageDomains(t.id, topology).includes(activeDomain));
+    if (filterEnabled) result = result.filter((target) =>
       `${target.id} ${target.kind} ${safeString(target.scope)} ${safeString(target.location)} ${target.description ?? ""}`
-        .toLowerCase()
-        .includes(filterText),
-    );
-  }, [filterEnabled, filterText, storageTargets]);
+        .toLowerCase().includes(filterText));
+    return result;
+  }, [activeDomain, filterEnabled, filterText, storageTargets, topology]);
 
   const filteredPlatforms: UniversalPlatform[] = useMemo(() => {
     if (!filterEnabled) return platforms;
@@ -328,22 +381,30 @@ function RegistryPage() {
 
   const deepLinkExamples = useMemo(() => {
     const route = "/plan";
-    const legacyDeepPath = `/open${route}`;
-    const legacyUrl = buildDeepLinkUrl(deepLinkBase, legacyDeepPath);
-    const legacyWebUrl = `${preferredWebOrigin}/#${route}`;
-
     const intent = buildUniversalIntentUrl({ kind: "route", path: route }, intentScheme, appId);
     const appPath = `/app/${appId}/route${route}`;
     const appUrl = buildDeepLinkUrl(deepLinkBase, appPath);
     const webAppUrl = `${preferredWebOrigin}/#${appPath}`;
 
-    return { appUrl, webAppUrl, intent, legacyUrl, legacyWebUrl };
+    return { appUrl, webAppUrl, intent };
   }, [appId, deepLinkBase, intentScheme, preferredWebOrigin]);
+
+  const wsBridgeProxyUrl = useMemo(() => {
+    // Clients now connect via the Vite proxy at /ws-bridge on the webview origin,
+    // which forwards to the direct bridge port and injects the token server-side.
+    try {
+      const url = new URL(preferredWebOrigin);
+      const wsScheme = url.protocol === "https:" ? "wss:" : "ws:";
+      return `${wsScheme}//${url.host}/ws-bridge`;
+    } catch {
+      return "ws://localhost:5173/ws-bridge";
+    }
+  }, [preferredWebOrigin]);
 
   const browserAuthUrl = useMemo(() => {
     if (!wsBridgeToken) return "";
     // NOTE: `wsToken` must be BEFORE the hash. The browser client reads it from `window.location.search`.
-    // Example: http://localhost:5173/?wsToken=...#/app/atlassian/route/plan
+    // Example: http://localhost:5173/?wsToken=...#/app/work/route/plan
     const appPath = `/app/${appId}/route/plan`;
     return `${preferredWebOrigin}/?wsToken=${encodeURIComponent(wsBridgeToken)}#${appPath}`;
   }, [appId, preferredWebOrigin, wsBridgeToken]);
@@ -392,20 +453,13 @@ function RegistryPage() {
   return (
     <section className="settings-unified">
       <div className="section">
-        <div className="section-heading">Registry</div>
-        <p className="note">
-          This page is the contract surface for routes, actions, commands, events, settings, and
-          storage. The goal is to keep IDs and envelopes stable across transports (VS Code IPC vs WS
-          bridge).
-        </p>
-
         <div className="registry-toolbar">
           <input
             type="text"
             className="registry-filter"
             value={filter}
             onChange={(e) => void setFilter(e.target.value)}
-            placeholder="Filter routes, actions, commands, events, settings..."
+            placeholder="Filter, or paste app://... vscode://... #/..."
             spellCheck={false}
             aria-label="Filter registry"
           />
@@ -418,238 +472,202 @@ function RegistryPage() {
           <button type="button" className="secondary" onClick={openCommandPalette}>
             Palette
           </button>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => navigate({ to: "/system/docs" })}
-          >
-            Docs
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => navigate({ to: "/system/settings" })}
-          >
-            Settings
-          </button>
           <button type="button" className="secondary" onClick={() => navigate({ to: "/system/dev" })}>
             Dev
           </button>
         </div>
-
-        <p className="note">
-          Tip: paste <code>{intentScheme}://...</code>, <code>vscode://...</code>, or{" "}
-          <code>#/...</code> into the URL bar or command palette.
-        </p>
       </div>
+
+      {activeDomain && (
+        <div className="domain-filter-bar">
+          Showing <DomainBadge domain={activeDomain} /> domain
+          <button type="button" className="domain-filter-clear" onClick={() => setActiveDomain(null)} aria-label="Clear domain filter">
+            Clear
+          </button>
+        </div>
+      )}
 
       <div className="section">
         <button type="button" className="section-toggle" onClick={() => toggleSectionOpen("matrix")}>
           <span className="section-toggle-icon">{matrixOpen ? "\u25BE" : "\u25B8"}</span>
-          <span className="section-heading">Matrix of matrices</span>
+          <span className="section-heading">Overview</span>
         </button>
         {matrixOpen && (
           <div className="section-body">
-            <div className="matrix-flow">
-              <div className="matrix-step">
-                <div className="matrix-step-title">Intent</div>
-                <div className="matrix-step-sub">
-                  <code>{intentScheme}://...</code>
-                </div>
-              </div>
-              <span className="matrix-flow-arrow">{"\u2192"}</span>
-              <div className="matrix-step">
-                <div className="matrix-step-title">Action</div>
-                <div className="matrix-step-sub">
-                  <code>atlassian.*</code>
-                </div>
-              </div>
-              <span className="matrix-flow-arrow">{"\u2192"}</span>
-              <div className="matrix-step">
-                <div className="matrix-step-title">Command/RPC</div>
-                <div className="matrix-step-sub">
-                  <code>atlassian.openApp</code> / <code>getState</code>
-                </div>
-              </div>
-              <span className="matrix-flow-arrow">{"\u2192"}</span>
-              <div className="matrix-step">
-                <div className="matrix-step-title">Envelope</div>
-                <div className="matrix-step-sub">
-                  <code>IpcEnvelope</code>
-                </div>
-              </div>
-              <span className="matrix-flow-arrow">{"\u2192"}</span>
-              <div className="matrix-step">
-                <div className="matrix-step-title">Transport</div>
-                <div className="matrix-step-sub">
-                  <code>{hasVsCodeApi ? "postMessage" : "ws"}</code>
-                </div>
-              </div>
-              <span className="matrix-flow-arrow">{"\u2192"}</span>
-              <div className="matrix-step">
-                <div className="matrix-step-title">Effects</div>
-                <div className="matrix-step-sub">
-                  <code>storage</code> + <code>events</code> + <code>route</code>
-                </div>
+            {/* Layer × Domain grid */}
+            <div className="topology-grid-scroll">
+              <div className="topology-grid" role="grid" aria-label="Layer by Domain matrix">
+                {/* Header row */}
+                <div className="topology-cell topology-corner" />
+                {domainIds.map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    className={`topology-cell topology-col-header topology-interactive${activeDomain === d ? " active" : ""}`}
+                    style={{ color: topology.domains[d]?.color }}
+                    onClick={() => setActiveDomain(activeDomain === d ? null : d)}
+                    aria-label={`Filter to ${d} domain`}
+                  >
+                    {d}
+                  </button>
+                ))}
+
+                {/* Interface row */}
+                <div className="topology-cell topology-row-header">Interface</div>
+                {domainIds.map((d) => (
+                  <div key={d} className="topology-cell">
+                    <div>{domainCounts[d].commands} ops</div>
+                    <div>{domainCounts[d].actions} actions</div>
+                    <div className="topology-detail">{domainCounts[d].routes} routes</div>
+                  </div>
+                ))}
+
+                {/* Protocol row */}
+                <div className="topology-cell topology-row-header">Protocol</div>
+                {domainIds.map((d) => (
+                  <div key={d} className="topology-cell">
+                    <div><code>IpcEnvelope</code></div>
+                    <div><code>JSON-RPC</code></div>
+                    {d === "view" ? <div className="topology-detail">+ hash history</div> : null}
+                  </div>
+                ))}
+
+                {/* Transport row */}
+                <div className="topology-cell topology-row-header">Transport</div>
+                {domainIds.map((d) => (
+                  <div key={d} className="topology-cell">
+                    <div><code>WS</code> via Vite proxy</div>
+                    {d === "view" ? <div className="topology-detail">+ TanStack Router</div> : null}
+                    {d === "app" ? <div className="topology-detail">:5173{"\u2192"}:5174</div> : null}
+                  </div>
+                ))}
+
+                {/* Store row */}
+                <div className="topology-cell topology-row-header">Store</div>
+                {domainIds.map((d) => (
+                  <div key={d} className="topology-cell">
+                    {domainCounts[d].storage.map((s) => (
+                      <div key={s}><code>{s}</code></div>
+                    ))}
+                  </div>
+                ))}
               </div>
             </div>
 
+            {/* Section index */}
+            <div className="topology-index">
+              <button type="button" className="topology-index-btn" onClick={() => openAndFocus("navigation", "registry-navigation")}>
+                Navigation<span className="topology-index-count">{routes.length}</span>
+              </button>
+              <button type="button" className="topology-index-btn" onClick={() => openAndFocus("actions", "registry-actions")}>
+                Actions<span className="topology-index-count">{actions.length}</span>
+              </button>
+              <button type="button" className="topology-index-btn" onClick={() => openAndFocus("operations", "registry-operations")}>
+                Operations<span className="topology-index-count">{commands.length}</span>
+              </button>
+              <button type="button" className="topology-index-btn" onClick={() => openAndFocus("signals", "registry-signals")}>
+                Signals<span className="topology-index-count">{events.length}</span>
+              </button>
+              <button type="button" className="topology-index-btn" onClick={() => openAndFocus("preferences", "registry-preferences")}>
+                Preferences<span className="topology-index-count">{Object.keys(SETTINGS_REGISTRY).length}</span>
+              </button>
+              <button type="button" className="topology-index-btn" onClick={() => openAndFocus("storage", "registry-storage")}>
+                Persistence<span className="topology-index-count">{storageTargetsCount}</span>
+              </button>
+              <button type="button" className="topology-index-btn" onClick={() => openAndFocus("runtime", "registry-runtime")}>
+                Runtime<span className="topology-index-count">{platforms.length + environments.length}</span>
+              </button>
+              <button type="button" className="topology-index-btn" onClick={() => navigate({ to: "/system/docs" })}>
+                .claude<span className="topology-index-count">{docsIndex?.entries?.length ?? 0}</span>
+              </button>
+            </div>
+
+            {(() => {
+              const tok = (text: string, type: "publisher" | "domain" | "noun" | "verb" | "sep" | "literal") => {
+                const colors: Record<string, string> = {
+                  publisher: "var(--vscode-charts-gray, #888)",
+                  domain: "var(--vscode-charts-blue, #4fc1ff)",
+                  noun: "var(--vscode-charts-green, #89d185)",
+                  verb: "var(--vscode-charts-orange, #cca700)",
+                  sep: "var(--vscode-descriptionForeground, #888)",
+                  literal: "var(--vscode-foreground)",
+                };
+                return <span style={{ color: colors[type], fontFamily: "var(--vscode-editor-font-family, monospace)" }}>{text}</span>;
+              };
+
+              const labelStyle: React.CSSProperties = { color: "var(--vscode-descriptionForeground)", whiteSpace: "nowrap" };
+
+              return (
+                <div style={{ marginTop: 16 }}>
+                  <h4 style={{ margin: "12px 0 8px", fontSize: 13, fontWeight: 600 }}>Naming Conventions</h4>
+                  <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr", gap: "4px 16px", fontFamily: "var(--vscode-editor-font-family)", fontSize: 13, alignItems: "baseline" }}>
+                    <span style={labelStyle}>Interface</span>
+                    <span>{tok("domain", "domain")}{tok(".", "sep")}{tok("noun", "noun")}{tok(".", "sep")}{tok("verb", "verb")}</span>
+                    <span>{tok("content", "domain")}{tok(".", "sep")}{tok("issue", "noun")}{tok(".", "sep")}{tok("get", "verb")}</span>
+
+                    <span style={labelStyle}></span>
+                    <span>{tok("domain", "domain")}{tok(".", "sep")}{tok("verb", "verb")}</span>
+                    <span>{tok("identity", "domain")}{tok(".", "sep")}{tok("login", "verb")}</span>
+
+                    <span style={labelStyle}>VS Code cmd</span>
+                    <span>{tok("work", "publisher")}{tok(".", "sep")}{tok("domain", "domain")}{tok(".", "sep")}{tok("noun", "noun")}{tok(".", "sep")}{tok("verb", "verb")}</span>
+                    <span>{tok("work", "publisher")}{tok(".", "sep")}{tok("content", "domain")}{tok(".", "sep")}{tok("issue", "noun")}{tok(".", "sep")}{tok("open", "verb")}</span>
+
+                    <span style={labelStyle}>Events</span>
+                    <span>{tok("domain", "domain")}{tok(".", "sep")}{tok("noun", "noun")}{tok(".", "sep")}{tok("event", "verb")}</span>
+                    <span>{tok("view", "domain")}{tok(".", "sep")}{tok("webview", "noun")}{tok(".", "sep")}{tok("ready", "verb")}</span>
+
+                    <span style={labelStyle}>Settings</span>
+                    <span>{tok("work", "publisher")}{tok(".", "sep")}{tok("key", "literal")}</span>
+                    <span>{tok("work", "publisher")}{tok(".", "sep")}{tok("baseUrl", "literal")}</span>
+
+                    <span style={labelStyle}>Routes</span>
+                    <span>{tok("/", "sep")}{tok("stage", "domain")}{tok("/", "sep")}{tok("sub", "noun")}</span>
+                    <span>{tok("/", "sep")}{tok("plan", "domain")}{tok("/", "sep")}{tok("weekly", "noun")}</span>
+
+                    <span style={labelStyle}>Intents</span>
+                    <span>{tok("app://", "sep")}{tok("work", "publisher")}{tok("/", "sep")}{tok("kind", "noun")}{tok("/", "sep")}{tok("path", "domain")}</span>
+                    <span>{tok("app://", "sep")}{tok("work", "publisher")}{tok("/", "sep")}{tok("route", "noun")}{tok("/", "sep")}{tok("plan", "domain")}</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+
+      <div className="section" id="registry-lifecycle">
+        <button type="button" className="section-toggle" onClick={() => toggleSectionOpen("lifecycle")}>
+          <span className="section-toggle-icon">{openSections.includes("lifecycle") ? "\u25BE" : "\u25B8"}</span>
+          <span className="section-heading">Lifecycle</span>
+          <span className="section-count">{stages.length} stages</span>
+        </button>
+        {openSections.includes("lifecycle") && (
+          <div className="section-body">
+            <div className="lifecycle-track">
+              {stages
+                .filter((s) => s.id !== "system")
+                .map((stage, i) => {
+                  const routeCount = routes.filter((r) => routeMetaMap[r.id]?.stage === stage.id).length;
+                  return (
+                    <React.Fragment key={stage.id}>
+                      {i > 0 ? <span className="lifecycle-arrow" aria-hidden="true">{"\u2192"}</span> : null}
+                      <button
+                        type="button"
+                        className="lifecycle-stage"
+                        onClick={() => navigate({ to: stage.defaultRoute })}
+                        aria-label={`Go to ${stage.label}`}
+                      >
+                        {stage.label}
+                        <span className="stage-count">{routeCount}</span>
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+            </div>
             <p className="note" style={{ marginTop: 8 }}>
-              The thing you actually want to unify long-term is the contract (intent/actions/routes/envelope), not the transport.
+              Stages define the sprint lifecycle. Each stage maps to routes in the <strong>view</strong> domain.
             </p>
-
-            <div className="matrix-cards">
-              <button
-                type="button"
-                className="matrix-card"
-                onClick={() => navigate({ to: "/system/docs", search: { doc: "docs/universal-matrix.md" } })}
-              >
-                <div className="matrix-card-head">
-                  <div className="matrix-card-title">Identity</div>
-                  <div className="matrix-card-count">{Object.keys(config.namespaces ?? {}).length}</div>
-                </div>
-                <div className="matrix-card-sub">namespaces + prefixes</div>
-                <div className="matrix-card-examples">
-                  <code>{(config.namespaces?.app?.prefix ?? "atlassian")}.&#42;</code>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="matrix-card"
-                onClick={() => navigate({ to: "/system/docs", search: { doc: "docs/routing-matrix.md" } })}
-              >
-                <div className="matrix-card-head">
-                  <div className="matrix-card-title">Intent</div>
-                  <div className="matrix-card-count">{UNIVERSAL_INTENT_KINDS.length}</div>
-                </div>
-                <div className="matrix-card-sub">canonical meaning links</div>
-                <div className="matrix-card-examples">
-                  <code>{buildUniversalIntentUrl({ kind: "route", path: "/plan" }, intentScheme, appId)}</code>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="matrix-card"
-                onClick={() => openAndFocus("navigation", "registry-navigation")}
-              >
-                <div className="matrix-card-head">
-                  <div className="matrix-card-title">Navigation</div>
-                  <div className="matrix-card-count">{routes.length}</div>
-                </div>
-                <div className="matrix-card-sub">routes + deep links</div>
-                <div className="matrix-card-examples">
-                  <code>/plan</code> <code>/review/issues/:key</code>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="matrix-card"
-                onClick={() => openAndFocus("intents", "registry-intents")}
-              >
-                <div className="matrix-card-head">
-                  <div className="matrix-card-title">Intents</div>
-                  <div className="matrix-card-count">{actions.length}</div>
-                </div>
-                <div className="matrix-card-sub">user intent IDs</div>
-                <div className="matrix-card-examples">
-                  <code>atlassian.app.open</code> <code>atlassian.issue.open</code>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="matrix-card"
-                onClick={() => openAndFocus("operations", "registry-operations")}
-              >
-                <div className="matrix-card-head">
-                  <div className="matrix-card-title">Operations</div>
-                  <div className="matrix-card-count">{commands.length}</div>
-                </div>
-                <div className="matrix-card-sub">vscode/rpc/ipc entrypoints</div>
-                <div className="matrix-card-examples">
-                  <code>atlassian.openApp</code> <code>getState</code> <code>atlassian.route.navigate</code>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="matrix-card"
-                onClick={() => openAndFocus("signals", "registry-signals")}
-              >
-                <div className="matrix-card-head">
-                  <div className="matrix-card-title">Signals</div>
-                  <div className="matrix-card-count">{events.length}</div>
-                </div>
-                <div className="matrix-card-sub">observable signals</div>
-                <div className="matrix-card-examples">
-                  <code>atlassian.route.changed</code>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="matrix-card"
-                onClick={() => openAndFocus("preferences", "registry-preferences")}
-              >
-                <div className="matrix-card-head">
-                  <div className="matrix-card-title">Preferences</div>
-                  <div className="matrix-card-count">{Object.keys(SETTINGS_REGISTRY).length}</div>
-                </div>
-                <div className="matrix-card-sub">settings registry</div>
-                <div className="matrix-card-examples">
-                  <code>atlassian.docsPath</code>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="matrix-card"
-                onClick={() => openAndFocus("storage", "registry-storage")}
-              >
-                <div className="matrix-card-head">
-                  <div className="matrix-card-title">Persistence</div>
-                  <div className="matrix-card-count">{storageTargetsCount}</div>
-                </div>
-                <div className="matrix-card-sub">storage targets</div>
-                <div className="matrix-card-examples">
-                  <code>settings</code> <code>secrets</code> <code>state</code>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="matrix-card"
-                onClick={() => openAndFocus("runtime", "registry-runtime")}
-              >
-                <div className="matrix-card-head">
-                  <div className="matrix-card-title">Runtime</div>
-                  <div className="matrix-card-count">{platforms.length + environments.length}</div>
-                </div>
-                <div className="matrix-card-sub">platforms + environments</div>
-                <div className="matrix-card-examples">
-                  <code>vscode</code> <code>web</code> <code>dev</code> <code>prod</code>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="matrix-card"
-                onClick={() => navigate({ to: "/system/docs" })}
-              >
-                <div className="matrix-card-head">
-                  <div className="matrix-card-title">_agents</div>
-                  <div className="matrix-card-count">{docsIndex?.entries?.length ?? 0}</div>
-                </div>
-                <div className="matrix-card-sub">docs + runbooks + plans + skills</div>
-                <div className="matrix-card-examples">
-                  <code>docs:{docsCounts.docs}</code> <code>runbooks:{docsCounts.runbooks}</code>{" "}
-                  <code>plans:{docsCounts.plans}</code> <code>skills:{docsCounts.skills}</code>
-                </div>
-              </button>
-            </div>
           </div>
         )}
       </div>
@@ -667,20 +685,19 @@ function RegistryPage() {
           <div className="section-body">
             {fullConfigError ? <div className="error">{fullConfigError}</div> : null}
             <KvGrid
+              variant="list"
               items={[
-                { label: "Wrapper base", value: deepLinkBase || "\u2014" },
-                { label: "Preferred wrapper (/app)", value: deepLinkExamples.appUrl || "\u2014" },
-                { label: "Preferred web URL (hash + /app)", value: deepLinkExamples.webAppUrl },
+                { label: "Wrapper base", value: deepLinkBase || "\u2014", onCopy: deepLinkBase ? () => copyText(deepLinkBase) : undefined },
+                { label: "Preferred wrapper (/app)", value: deepLinkExamples.appUrl || "\u2014", onCopy: deepLinkExamples.appUrl ? () => copyText(deepLinkExamples.appUrl) : undefined },
+                { label: "Preferred web URL (hash + /app)", value: deepLinkExamples.webAppUrl, onCopy: () => copyText(deepLinkExamples.webAppUrl) },
                 { label: "Intent scheme", value: intentScheme || "\u2014", muted: true },
-                { label: "Canonical intent URL", value: deepLinkExamples.intent, muted: true },
-                { label: "Legacy deep link (/open)", value: deepLinkExamples.legacyUrl || "\u2014", muted: true },
-                { label: "Legacy web URL (hash route)", value: deepLinkExamples.legacyWebUrl, muted: true },
-                { label: "IPC (VS Code)", value: "webview.postMessage (JSON-RPC + ipc envelopes)" },
+                { label: "Canonical intent URL", value: deepLinkExamples.intent, muted: true, onCopy: () => copyText(deepLinkExamples.intent) },
+                { label: "IPC transport", value: "WS via Vite proxy (IpcEnvelope + JSON-RPC 2.0)" },
                 {
                   label: "WS bridge (browser dev)",
-                  value: `ws://${wsBridgeHost}:${wsBridgePort}/?token=${wsBridgeToken ? "…" : "<missing>"}`,
+                  value: `${wsBridgeProxyUrl} (via Vite proxy)`,
                 },
-                { label: "Extension", value: state.extensionId || "\u2014", muted: true },
+                { label: "Extension", value: state.extensionId || "\u2014", muted: true, onCopy: state.extensionId ? () => copyText(state.extensionId) : undefined },
                 { label: "URI scheme", value: state.uriScheme || "\u2014", muted: true },
               ]}
             />
@@ -702,31 +719,6 @@ function RegistryPage() {
                 title="Opens localhost with ?wsToken=... once; token persists in localStorage"
               >
                 Copy browser auth URL
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => copyText(deepLinkExamples.appUrl)}
-                disabled={!deepLinkBase}
-              >
-                Copy preferred wrapper
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => copyText(deepLinkExamples.legacyUrl)}
-                disabled={!deepLinkBase}
-              >
-                Copy legacy deep link
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() =>
-                  copyText(buildUniversalIntentUrl({ kind: "route", path: "/plan" }, intentScheme, appId))
-                }
-              >
-                Copy universal URL
               </button>
               <button
                 type="button"
@@ -832,7 +824,7 @@ function RegistryPage() {
                   const linkedActions = actionsByRouteRef[route.id] ?? [];
                   return (
                     <li key={route.id}>
-                      <code>{route.path}</code> <span className="note">({route.id})</span>{" "}
+                      <code>{route.path}</code> <DomainBadge domain={domainOf(route.id, topology, routeMetaMap[route.id]?.stage)} /> <span className="note">({route.id})</span>{" "}
                       {canNav ? (
                         <a
                           href="#"
@@ -877,7 +869,7 @@ function RegistryPage() {
                           onClick={(e) => {
                             e.preventDefault();
                             void setFilter(route.id);
-                            openAndFocus("intents", "registry-intents");
+                            openAndFocus("actions", "registry-actions");
                           }}
                         >
                           actions {linkedActions.length}
@@ -891,13 +883,13 @@ function RegistryPage() {
         )}
       </div>
 
-      <div className="section" id="registry-intents">
-        <button type="button" className="section-toggle" onClick={() => toggleSectionOpen("intents")}>
-          <span className="section-toggle-icon">{intentsOpen ? "\u25BE" : "\u25B8"}</span>
-          <span className="section-heading">Intents</span>
+      <div className="section" id="registry-actions">
+        <button type="button" className="section-toggle" onClick={() => toggleSectionOpen("actions")}>
+          <span className="section-toggle-icon">{actionsOpen ? "\u25BE" : "\u25B8"}</span>
+          <span className="section-heading">Actions</span>
           <span className="section-count">{formatCount(filteredActions.length, actions.length)}</span>
         </button>
-        {intentsOpen && (
+        {actionsOpen && (
           <div className="section-body">
             <ul className="list">
               {sortById(filteredActions)
@@ -908,7 +900,7 @@ function RegistryPage() {
                   const intent = buildUniversalIntentUrl({ kind: "action", id: action.id }, intentScheme, appId);
                   return (
                     <li key={action.id}>
-                      <code>{action.id}</code>{" "}
+                      <code>{action.id}</code> <DomainBadge domain={domainOf(action.id, topology)} />{" "}
                       <a
                         href="#"
                         className="inline-route-link"
@@ -994,7 +986,7 @@ function RegistryPage() {
                   const linkedActions = actionsByCommandOrRpc[cmd.id] ?? [];
                   return (
                     <li key={cmd.id}>
-                      <code>{cmd.id}</code> <span className="note">({cmd.kind})</span>
+                      <code>{cmd.id}</code> <DomainBadge domain={domainOf(cmd.id, topology)} /> <span className="note">({cmd.kind})</span>
                       {cmd.payloadSchema ? (
                         <>
                           {" "}
@@ -1008,7 +1000,7 @@ function RegistryPage() {
                           onClick={(e) => {
                             e.preventDefault();
                             void setFilter(cmd.id);
-                            openAndFocus("intents", "registry-intents");
+                            openAndFocus("actions", "registry-actions");
                           }}
                         >
                           actions {linkedActions.length}
@@ -1035,7 +1027,7 @@ function RegistryPage() {
                 .filter((evt) => Boolean(evt?.id))
                 .map((evt) => (
                   <li key={evt.id}>
-                    <code>{evt.id}</code> <span className="note">({evt.kind})</span>
+                    <code>{evt.id}</code> <DomainBadge domain={domainOf(evt.id, topology)} /> <span className="note">({evt.kind})</span>
                     {evt.payloadSchema ? (
                       <>
                         {" "}
@@ -1115,6 +1107,9 @@ function RegistryPage() {
               {sortById(filteredStorageTargets).map((target) => (
                 <li key={target.id}>
                   <code>{target.id}</code>{" "}
+                  {deriveStorageDomains(target.id, topology).map((d) => (
+                    <DomainBadge key={d} domain={d} />
+                  ))}{" "}
                   <span className="note">
                     ({target.kind}
                     {target.scope ? `, ${target.scope}` : ""})

@@ -3,7 +3,7 @@ import { readFileSync } from "fs";
 import { join } from "path";
 import { HandlerConfig } from "@jsonrpc-rx/server";
 import { AbstractViewProvider } from "./view-provider-abstract";
-import { DEFAULT_WEBVIEW_PORT } from "../../constants";
+import { DEFAULT_WEBVIEW_PORT, DEFAULT_WS_BRIDGE_PORT } from "../../constants";
 import { WebviewRenderTracker } from "../../service/webview-render-tracker";
 import type { WebviewRoute } from "../../service/webview-route";
 import { IPC_COMMANDS, IPC_EVENTS } from "../../../shared/contracts";
@@ -11,18 +11,19 @@ import type { RouteChangedPayload } from "../../../shared/contracts";
 import { buildRouteHash, routeHintToPath } from "../../../shared/contracts";
 import { WebviewIpcHost } from "../../service/webview-ipc";
 import { logIpcMessage } from "../../service/ui-logger";
-import { getWebviewServerUrl } from "../data/atlassian/atlassianConfig";
-import { log } from "../data/atlassian/logger";
+import { getWebviewServerUrl } from "../data/jira/jiraConfig";
+import { log } from "../data/jira/logger";
 import { resolveWebviewPath, resolveWebviewRoot } from "../../webview/paths";
 import {
   getServerPort,
   isLocalhostUrl,
   normalizeServerUrl,
 } from "../../webview/reachability";
+import { APP_NAME, ROUTE_HINT_PRIMARY_KEY, WEBVIEW_MARKERS } from "../../../shared/app-identity";
 
 export class ViewProviderPanel extends AbstractViewProvider {
-  static readonly viewType = "atlassianAppWebviewPanel";
-  static readonly title = "Atlassian Sprint";
+  static readonly viewType = "workspaceAppWebviewPanel";
+  static readonly title = `${APP_NAME} Sprint`;
 
   // Optional fan-out for browser dev mode (WS bridge) so VS Code-initiated
   // navigation/state commands can reach external clients as well.
@@ -72,7 +73,10 @@ export class ViewProviderPanel extends AbstractViewProvider {
       localResourceRoots: [this.context.extensionUri, Uri.joinPath(this.context.extensionUri, "out")],
       portMapping:
         hasServerUrl && serverInfo.isLocal
-          ? [{ webviewPort: serverInfo.port, extensionHostPort: serverInfo.port }]
+          ? [
+              { webviewPort: serverInfo.port, extensionHostPort: serverInfo.port },
+              { webviewPort: DEFAULT_WS_BRIDGE_PORT, extensionHostPort: DEFAULT_WS_BRIDGE_PORT },
+            ]
           : undefined,
     };
 
@@ -194,8 +198,8 @@ export class ViewProviderPanel extends AbstractViewProvider {
     return this.getServerInfo().url;
   }
 
-  private isAtlassianDevHtml(html: string): boolean {
-    return html.includes("atlassian-webview");
+  private isWorkspaceDevHtml(html: string): boolean {
+    return WEBVIEW_MARKERS.some((marker) => html.includes(marker));
   }
 
   private async tryGetServerHtml(webview: Webview): Promise<string | undefined> {
@@ -219,7 +223,7 @@ export class ViewProviderPanel extends AbstractViewProvider {
       const hmrIndex = join(webviewRoot, this.wiewProviderOptions.indexPath);
       try {
         const htmlText = readFileSync(hmrIndex, { encoding: "utf8" }).toString();
-        if (htmlText.includes(AbstractViewProvider.VSCODE_WEBVIEW_HMR_MARK) && this.isAtlassianDevHtml(htmlText)) {
+        if (htmlText.includes(AbstractViewProvider.VSCODE_WEBVIEW_HMR_MARK) && this.isWorkspaceDevHtml(htmlText)) {
           log(`[webview] Using HMR plugin output (${hmrIndex}).`);
           return this.buildWebviewHtml(webview, htmlText, devUrl);
         }
@@ -233,7 +237,7 @@ export class ViewProviderPanel extends AbstractViewProvider {
       const sourceIndex = join(webviewRoot, "src", "webview", "index.html");
       try {
         const htmlText = readFileSync(sourceIndex, { encoding: "utf8" }).toString();
-        if (this.isAtlassianDevHtml(htmlText)) {
+        if (this.isWorkspaceDevHtml(htmlText)) {
           log(`[webview] Using source index.html with server URL ${devUrl} (${sourceIndex}).`);
           // Vite normally injects @vite/client and the React Refresh preamble via
           // transformIndexHtml, but we load the HTML from disk so we must add them manually.
@@ -263,8 +267,8 @@ export class ViewProviderPanel extends AbstractViewProvider {
     try {
       const htmlText = readFileSync(indexPath, { encoding: "utf8" }).toString();
       const hasHmrMark = htmlText.includes(AbstractViewProvider.VSCODE_WEBVIEW_HMR_MARK);
-      const hasAtlassianMark = this.isAtlassianDevHtml(htmlText);
-      if (hasHmrMark && hasAtlassianMark) {
+      const hasWorkspaceMark = this.isWorkspaceDevHtml(htmlText);
+      if (hasHmrMark && hasWorkspaceMark) {
         log(`[webview] Using installed HTML with server URL ${devUrl}.`);
         return this.buildWebviewHtml(webview, htmlText, devUrl);
       }
@@ -314,7 +318,7 @@ export class ViewProviderPanel extends AbstractViewProvider {
     <meta charset="UTF-8" />
     <meta http-equiv="Content-Security-Policy" content="${csp}" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Atlassian Webview</title>
+    <title>${APP_NAME} Webview</title>
     <style>
       body { font-family: sans-serif; padding: 24px; color: #1f2328; }
       .card { border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; background: #f6f8fa; }
@@ -335,7 +339,7 @@ export class ViewProviderPanel extends AbstractViewProvider {
    * Embeds an initial route into the webview HTML so the app starts at the correct path.
    *
    * Sets both `location.hash` (so TanStack Router initializes at the right path) and
-   * `window.__atlassianRoute` (so App.tsx can apply the route hint in its mount effect).
+   * `window.__workRoute` (so App.tsx can apply the route hint in its mount effect).
    *
    * The hash is always overridden when an `initialRoute` is present — even if a previous
    * hash exists (e.g., `#/plan` from a prior session). This is intentional: `initialRoute`
@@ -349,7 +353,8 @@ export class ViewProviderPanel extends AbstractViewProvider {
     const targetHash = buildRouteHash(normalizedPath, this.initialRoute.query);
     const routePayload = JSON.stringify(this.initialRoute);
     // Always override the hash — this route was explicitly requested via deep link or command.
-    const script = `<script>(function(){try{window.__atlassianRoute=${routePayload};location.hash=${JSON.stringify(
+    const routeHintKey = JSON.stringify(ROUTE_HINT_PRIMARY_KEY);
+    const script = `<script>(function(){try{window[${routeHintKey}]=${routePayload};location.hash=${JSON.stringify(
       targetHash,
     )};}catch(e){}})();</script>`;
     this.initialRoute = undefined;

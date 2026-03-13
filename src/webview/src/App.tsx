@@ -8,6 +8,7 @@ import { getVsCodeApi, isWebview as isWebviewStatic, isBridgeConnected } from ".
 import { AppContextProvider, type FormState } from "./contexts/app-context";
 import type { JiraIssueDetails, WebviewState } from "./types/handlers";
 import type { JiraIssueSummary } from "@shared/contracts";
+import { ROUTE_HINT_WINDOW_KEYS } from "@shared/app-identity";
 import type { UniversalConfig, UniversalStage } from "@shared/universal";
 import { DEFAULT_UNIVERSAL_CONFIG } from "@shared/universal";
 import { createWebviewIpc } from "./ipc";
@@ -116,11 +117,12 @@ function App({ children }: AppProps) {
   const initialRouteApplied = useRef(false);
   const initialRouteTargetRef = useRef<{ path: string; search: string } | null>(null);
 
-  const [isWebview, setIsWebview] = useState(isWebviewStatic);
+  // Unified transport: WS bridge is the primary transport for both VS Code
+  // webview and browser. Start disconnected, become connected when WS opens.
+  const [isWebview, setIsWebview] = useState(isBridgeConnected() || isWebviewStatic);
   const [wsAuthFailed, setWsAuthFailed] = useState(false);
 
   useEffect(() => {
-    if (isWebviewStatic) return;
     const onBridgeConnected = () => {
       setWsAuthFailed(false);
       setIsWebview(true);
@@ -224,7 +226,9 @@ function App({ children }: AppProps) {
     if (!isWebview || initialRouteApplied.current) {
       return;
     }
-    const hint = (window as any).__atlassianRoute as RouteHint | undefined;
+    const hint = ROUTE_HINT_WINDOW_KEYS
+      .map((key) => (window as any)[key] as RouteHint | undefined)
+      .find(Boolean);
     if (hint) {
       initialRouteApplied.current = true;
       const target = normalizeRoutePath(routeHintToPath(hint));
@@ -464,9 +468,9 @@ function App({ children }: AppProps) {
     await handlers.reinstallExtension();
   };
 
-  const startDevTaskTerminal = async () => {
+  const startTaskTerminal = async () => {
     setError("");
-    await handlers.startDevTaskTerminal();
+    await handlers.startTaskTerminal();
   };
 
   const buildExtension = async () => {
@@ -541,7 +545,7 @@ function App({ children }: AppProps) {
   const openPaletteFromUrlBar = useCallback(
     (query?: string) => {
       window.dispatchEvent(
-        new CustomEvent("atlassian:commandPalette", {
+        new CustomEvent("work:commandPalette", {
           detail: {
             source: "urlbar",
             query: typeof query === "string" ? query : "",
@@ -604,7 +608,7 @@ function App({ children }: AppProps) {
       });
   }, [handlers, issueKey]);
 
-  const appId = universalConfig?.app.id ?? DEFAULT_UNIVERSAL_CONFIG.app.id ?? "atlassian";
+  const appId = universalConfig?.app.id ?? DEFAULT_UNIVERSAL_CONFIG.app.id ?? "work";
   // Show a link that's "native" to the current *surface*:
   // - VS Code webview surface: `${uriScheme}://${extensionId}/app/...`
   // - Browser surface (even if WS bridge is connected): `http://localhost:5173/#/app/...`
@@ -675,7 +679,7 @@ function App({ children }: AppProps) {
         reloadWebviews,
         reinstallExtension,
         restartExtensionHost,
-        startDevTaskTerminal,
+        startTaskTerminal,
         buildExtension,
         buildWebview,
         formatTimestamp,
@@ -731,7 +735,7 @@ function App({ children }: AppProps) {
             <h2>Webview Unavailable</h2>
             <p className="note">
               This UI is running outside VS Code. Open the extension webview panel to connect to
-              Atlassian and use the dev controls.
+              Jira and use the dev controls.
             </p>
             {wsAuthFailed ? (
               <p className="note">
@@ -763,7 +767,7 @@ function App({ children }: AppProps) {
         onReloadWebviews={reloadWebviews}
         onReinstallExtension={reinstallExtension}
         onRestartExtensionHost={restartExtensionHost}
-        onStartTaskTerminal={startDevTaskTerminal}
+        onStartTaskTerminal={startTaskTerminal}
         onSaveToken={saveToken}
       />
 

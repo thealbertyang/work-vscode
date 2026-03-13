@@ -1,4 +1,4 @@
-export const SETTINGS_SECTION = "atlassian";
+export const SETTINGS_SECTION = "work";
 
 export const SETTINGS_KEYS = {
   BASE_URL: "baseUrl",

@@ -7,7 +7,7 @@ import type { FullConfig } from "../handlers/config";
 import type { WebviewState, AppPersistedState } from "../../shared/contracts";
 import { EMPTY_APP_STATE } from "../../shared/contracts";
 import { parseSimpleToml } from "../../shared/simple-toml";
-import { log } from "../providers/data/atlassian/logger";
+import { log } from "../providers/data/jira/logger";
 import { AppEngineConfigService, DEFAULT_APP_ENGINE_CONFIG, type AppEngineConfig } from "./app-engine-config-service";
 import { UniversalConfigService } from "./universal-config-service";
 
@@ -47,13 +47,13 @@ const readWorkspaceUserConfig = (filePath: string): Record<string, unknown> | nu
   }
 };
 
-const defaultUserConfigTemplate = `# Workspace App Config (User-Facing)
+const defaultUserConfigTemplate = `# Work App Config (User-Facing)
 #
 # This file is for user intent and workspace preferences only.
 # Do NOT put secrets here (API tokens, WS tokens, passwords). Use VS Code Secrets/Settings.
 #
 # Live, read-only cache written by the extension:
-#   _agents/app-global-state.json
+#   .claude/app-global-state.json
 
 version = 1
 
@@ -224,7 +224,7 @@ export class AppGlobalStateService implements Disposable {
 
     this.disposables.push(
       workspace.onDidChangeConfiguration((event) => {
-        if (event.affectsConfiguration("atlassian")) {
+        if (event.affectsConfiguration("work")) {
           this.scheduleWrite();
         }
       }),
@@ -319,4 +319,3 @@ export class AppGlobalStateService implements Disposable {
     }
   }
 }
-

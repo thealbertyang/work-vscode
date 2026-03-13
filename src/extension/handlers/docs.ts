@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { Uri, commands, window, workspace } from "vscode";
-import { getDocsPath } from "../providers/data/atlassian/atlassianConfig";
+import { getDocsPath } from "../providers/data/jira/jiraConfig";
 import type { DocContent, DocEntry, DocGroup, DocsIndex, DocsSource } from "../../shared/docs-contract";
 import type { HandlerDependencies } from "./types";
 
@@ -21,8 +21,8 @@ const PLANS_DIR = "plans";
 const SKILLS_DIR = "skills";
 const MARKDOWN_EXT = ".md";
 
-const CODEX_HOME = path.join(os.homedir(), ".codex");
-const CLAUDE_HOME = path.join(os.homedir(), ".claude");
+const CODEX_HOME = process.env.CODEX_HOME?.trim() || path.join(os.homedir(), ".codex");
+const CLAUDE_HOME = process.env.CLAUDE_CODE_DIR?.trim() || path.join(os.homedir(), ".claude");
 
 const ALLOWED_HIDDEN_DIRS = new Set([".codex-global", ".claude-global"]);
 
@@ -131,7 +131,7 @@ const resolveConfiguredPath = (value: string, context: DocsDependencies["context
   return path.resolve(context.extensionPath, value);
 };
 
-const WORKSPACE_AGENTS_DIR = "_agents";
+const WORKSPACE_AGENTS_DIR = ".claude";
 
 const resolveDocsRoot = (context: DocsDependencies["context"]): DocsRoot => {
   const workspaceFolder =
@@ -158,20 +158,20 @@ const resolveDocsRoot = (context: DocsDependencies["context"]): DocsRoot => {
   }
 
   if (workspaceFolder) {
-    const workspaceAgents = path.join(workspaceFolder.uri.fsPath, WORKSPACE_AGENTS_DIR);
-    if (isDirectory(workspaceAgents)) {
+    const workAgents = path.join(workspaceFolder.uri.fsPath, WORKSPACE_AGENTS_DIR);
+    if (isDirectory(workAgents)) {
       return {
-        root: workspaceAgents,
-        source: "workspace",
+        root: workAgents,
+        source: "local",
         workspaceRoot,
-        allowedRealRoots: buildAllowedRealRoots(workspaceAgents, workspaceRoot),
+        allowedRealRoots: buildAllowedRealRoots(workAgents, workspaceRoot),
       };
     }
     const workspaceDocs = path.join(workspaceFolder.uri.fsPath, "docs");
     if (isDirectory(workspaceDocs)) {
       return {
         root: workspaceDocs,
-        source: "workspace",
+        source: "local",
         workspaceRoot,
         allowedRealRoots: buildAllowedRealRoots(workspaceDocs, workspaceRoot),
       };
@@ -192,7 +192,7 @@ const resolveDocsRoot = (context: DocsDependencies["context"]): DocsRoot => {
     root: null,
     source: "none",
     workspaceRoot,
-    error: "No docs directory found. Set atlassian.docsPath to enable Markdown rendering.",
+    error: "No docs directory found. Set work.docsPath to enable Markdown rendering.",
   };
 };
 
@@ -382,7 +382,7 @@ export const createDocsHandlers = ({ context }: DocsDependencies) => ({
       };
     }
 
-    // If we're using the workspace/extension _agents root, wire in external Codex/Claude
+    // If we're using the workspace/extension .claude root, wire in external Codex/Claude
     // content via symlinks so the UI can browse them.
     ensureAgentExternalRoots(root);
 

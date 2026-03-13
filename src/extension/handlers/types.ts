@@ -1,14 +1,14 @@
 import type { ExtensionContext } from "vscode";
-import type { AtlassianClient } from "../providers/data/atlassian/atlassianClient";
-import type { AtlassianIssuesProvider } from "../providers/data/atlassian/issueProvider";
+import type { JiraClient } from "../providers/data/jira/jiraClient";
+import type { WorkspaceIssuesProvider } from "../providers/data/jira/issueProvider";
 import type { WebviewServer } from "../service/webview-dev-server";
 import type { StorageService } from "../service/storage-service";
 
 export type HandlerDependencies = {
   context: ExtensionContext;
   storage: StorageService;
-  client: AtlassianClient;
-  provider: AtlassianIssuesProvider;
+  client: JiraClient;
+  provider: WorkspaceIssuesProvider;
   webviewServer: WebviewServer;
   extensionInstaller: import("../service/extension-installer").ExtensionInstaller;
   buildWatcher: import("../service/extension-build-watcher").ExtensionBuildWatcher;

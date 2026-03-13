@@ -2,10 +2,11 @@ import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import { statSync } from "fs";
 import { join } from "path";
 import * as vscode from "vscode";
+import { APP_NAME } from "../../shared/app-identity";
 
 const BUILD_COMMAND = "bun run build:ext";
 const WATCH_COMMAND = "bun run dev:ext";
-const OUTPUT_CHANNEL_NAME = "Atlassian Build";
+const OUTPUT_CHANNEL_NAME = `${APP_NAME} Build`;
 const FORCE_KILL_TIMEOUT_MS = 2000;
 
 export class ExtensionBuildWatcher implements vscode.Disposable {

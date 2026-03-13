@@ -18,6 +18,7 @@ export function SubNav({ items, currentPath, onNavigate }: SubNavProps) {
             key={item.path}
             type="button"
             className={`sub-nav-item${isActive ? " sub-nav-active" : ""}`}
+            data-label={item.label}
             onClick={() => onNavigate(item.path)}
           >
             {item.label}

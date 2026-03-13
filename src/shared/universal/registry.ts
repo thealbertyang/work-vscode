@@ -1,4 +1,5 @@
 import type {
+  TopologyConfig,
   UniversalAction,
   UniversalCommand,
   UniversalConfig,
@@ -24,6 +25,7 @@ export type UniversalRegistry = {
   datasets: Record<string, UniversalDataset>;
   storage?: UniversalStorageConfig;
   urlState?: UrlStateConfig;
+  topology?: TopologyConfig;
 };
 
 export const createUniversalRegistry = (
@@ -41,5 +43,6 @@ export const createUniversalRegistry = (
     datasets: config.datasets ?? {},
     storage: config.storage,
     urlState: config.urlState,
+    topology: config.topology,
   };
 };

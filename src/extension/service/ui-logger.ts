@@ -5,7 +5,7 @@ import {
   safeJsonParse,
   type UiActionPayload,
 } from "../../shared/contracts";
-import { log } from "../providers/data/atlassian/logger";
+import { log } from "../providers/data/jira/logger";
 
 type Direction = "send" | "recv";
 type IpcKind = "event" | "command";

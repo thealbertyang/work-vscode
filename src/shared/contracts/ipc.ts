@@ -2,16 +2,16 @@ import type { RouteHint } from "./routes";
 import type { DevState } from "./state";
 
 export const IPC_EVENTS = {
-  WEBVIEW_READY: "atlassian.webview.ready",
-  ROUTE_CHANGED: "atlassian.route.changed",
-  UI_ACTION: "atlassian.ui.action",
-  UI_EVENT: "atlassian.ui.event",
+  WEBVIEW_READY: "work.webview.ready",
+  ROUTE_CHANGED: "work.route.changed",
+  UI_ACTION: "work.ui.action",
+  UI_EVENT: "work.ui.event",
 } as const;
 
 export const IPC_COMMANDS = {
-  NAVIGATE: "atlassian.route.navigate",
-  REFRESH_WEBVIEW: "atlassian.webview.refresh",
-  STATE_UPDATED: "atlassian.state.updated",
+  NAVIGATE: "work.route.navigate",
+  REFRESH_WEBVIEW: "work.webview.refresh",
+  STATE_UPDATED: "work.state.updated",
 } as const;
 
 export type IpcEventName = (typeof IPC_EVENTS)[keyof typeof IPC_EVENTS];

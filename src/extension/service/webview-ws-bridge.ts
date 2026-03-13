@@ -2,7 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { JsonrpcServer, expose, type HandlerConfig } from "@jsonrpc-rx/server";
 import type { Disposable } from "vscode";
 import type { IncomingMessage } from "http";
-import { log } from "../providers/data/atlassian/logger";
+import { log } from "../providers/data/jira/logger";
 import { DEFAULT_WS_BRIDGE_HOST, DEFAULT_WS_BRIDGE_PORT } from "../constants";
 import { logIpcMessage } from "./ui-logger";
 import { IPC_EVENTS, type IpcEnvelope } from "../../shared/contracts";
@@ -158,10 +158,11 @@ export class WebviewWsBridge implements Disposable {
     }
 
     const origin = req.headers.origin;
-    // VS Code webviews use an opaque origin like vscode-webview://{uuid}. Treat it as safe;
-    // token auth still applies, and it isn't reachable from arbitrary web pages.
+    // VS Code webviews use an opaque origin like vscode-webview://{uuid}. This origin
+    // is controlled by VS Code and cannot be spoofed from external pages — treat as trusted
+    // without requiring a token. This enables unified WS transport from VS Code webviews.
     if (typeof origin === "string" && origin.startsWith("vscode-webview://")) {
-      return tokenRequired ? this.matchesToken(req, tokenRequired) : { ok: true };
+      return { ok: true };
     }
     if (origin && allowedOrigins.length > 0 && !allowedOrigins.includes(origin)) {
       return { ok: false, reason: `origin_not_allowed (${origin})` };

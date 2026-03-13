@@ -1,0 +1,190 @@
+# Atlassian Sprint View - Universal Agent Configuration
+# Auto-generated. Edit manually or use Settings > Full Config panel.
+# This file is the single source of truth for the full app state matrix.
+
+# ═══════════════════════════════════════════════════════════
+# Identity
+# ═══════════════════════════════════════════════════════════
+
+[app]
+id = "atlassian-sprint-view"
+name = "Atlassian Sprint"
+namespace = "atlassian"
+version = "0.0.11"
+
+# ═══════════════════════════════════════════════════════════
+# Connection
+# ═══════════════════════════════════════════════════════════
+
+[connection]
+baseUrl = ""
+email = ""
+apiTokenConfigured = false
+configSource = "none"  # env.local | env | process.env | settings | mixed | none
+authType = "none"      # apiToken | none
+
+# ═══════════════════════════════════════════════════════════
+# VS Code Settings (atlassian.*)
+# ═══════════════════════════════════════════════════════════
+
+[settings]
+jql = "assignee = currentUser() AND sprint in openSprints() ORDER BY updated DESC"
+maxResults = 50
+docsPath = ""
+webviewPath = ""
+webviewServerUrl = ""
+
+# ═══════════════════════════════════════════════════════════
+# Development
+# ═══════════════════════════════════════════════════════════
+
+[dev]
+devMode = false
+wsBridgePort = 5174
+webviewPort = 5173
+
+# ═══════════════════════════════════════════════════════════
+# Agent Sources & Configuration
+# ═══════════════════════════════════════════════════════════
+
+[agents]
+configDir = ".claude"
+plansDir = "docs/plans"
+
+[agents.sources]
+codex = "~/.codex"
+claude = "~/.claude"
+
+[agents.sources.codex_plans]
+path = "~/.codex/plans"
+sync = true
+
+[agents.sources.claude_plans]
+path = "~/.claude/plans"
+sync = true
+
+# ═══════════════════════════════════════════════════════════
+# IPC Protocol
+# ═══════════════════════════════════════════════════════════
+
+[ipc]
+commands = ["atlassian.route.navigate", "atlassian.webview.refresh"]
+events = ["atlassian.webview.ready", "atlassian.route.changed", "atlassian.ui.action", "atlassian.ui.event"]
+
+# ═══════════════════════════════════════════════════════════
+# Universal Matrix
+# Plan → Execute → Review → Ship → Observe → (repeat)
+# ═══════════════════════════════════════════════════════════
+
+[universal]
+configService = "src/extension/service/universal-config-service.ts"
+defaults = "src/shared/universal/defaults.ts"
+types = "src/shared/universal/types.ts"
+
+[universal.stages.plan]
+order = 1
+label = "Plan"
+defaultRoute = "/plan"
+subnav = ["daily", "weekly", "monthly", "quarterly", "career"]
+aiRole = "Summarize + rank tasks"
+humanGate = "Confirm selection"
+
+[universal.stages.execute]
+order = 2
+label = "Execute"
+defaultRoute = "/execute"
+aiRole = "Draft code/tests"
+humanGate = "Review + edit"
+
+[universal.stages.review]
+order = 3
+label = "Review"
+defaultRoute = "/review"
+aiRole = "Risk scan + checklist"
+humanGate = "Approve or request changes"
+
+[universal.stages.ship]
+order = 4
+label = "Ship"
+defaultRoute = "/ship"
+aiRole = "Release summary + notes"
+humanGate = "Approve publish"
+
+[universal.stages.observe]
+order = 5
+label = "Observe"
+defaultRoute = "/observe"
+aiRole = "Signal triage + summaries"
+humanGate = "Confirm action"
+
+[universal.stages.system]
+order = 99
+label = "System"
+defaultRoute = "/system/settings"
+subnav = ["settings", "docs", "registry"]
+
+# ═══════════════════════════════════════════════════════════
+# Automation Modes (from lifecycle-ui.md)
+# ═══════════════════════════════════════════════════════════
+
+[automations]
+discoveryPaths = ["~/.codex/automations", ".claude/automations"]
+
+[automations.modes]
+assist = { description = "Drafts and suggestions only", default = true, risk = "low" }
+guided = { description = "Executes after explicit confirmation", default = false, risk = "medium" }
+auto = { description = "Executes without confirmation", default = false, risk = "high" }
+
+# ═══════════════════════════════════════════════════════════
+# Workflow Cadence (from project-management-matrix.md)
+# ═══════════════════════════════════════════════════════════
+
+[workflows.cadence]
+daily = { view = "/plan", focus = "Today's tasks, blockers" }
+weekly = { view = "/plan/weekly", focus = "Sprint progress, upcoming work" }
+monthly = { view = "/plan/monthly", focus = "Milestone tracking, velocity" }
+quarterly = { view = "/plan/quarterly", focus = "OKR alignment, roadmap" }
+career = { view = "/plan/career", focus = "Growth goals, skill development" }
+
+# ═══════════════════════════════════════════════════════════
+# Documentation Matrix
+# ═══════════════════════════════════════════════════════════
+
+[docs]
+path = "docs/agents"
+runbooksPath = "docs/runbooks"
+
+[docs.matrices]
+universal = "docs/agents/universal-matrix.md"
+routing = "docs/agents/routing-matrix.md"
+engineer = "docs/agents/engineer-work-matrix.md"
+lifecycle = "docs/agents/lifecycle-ui.md"
+configuration = "docs/agents/configuration-matrix.md"
+projectManagement = "docs/agents/project-management-matrix.md"
+externalApp = "docs/agents/external-app-matrix.md"
+automationRunner = "docs/agents/automation-runner.md"
+reminders = "docs/agents/reminder-ui.md"
+mainApp = "docs/agents/main-app-usage.md"
+
+# ═══════════════════════════════════════════════════════════
+# Platforms (multi-medium support)
+# ═══════════════════════════════════════════════════════════
+
+[platforms]
+vscode = { kind = "vscode", description = "VS Code webview panel" }
+web = { kind = "web", description = "Browser at localhost:5173 via WS bridge" }
+cli = { kind = "desktop", description = "CLI via codex/claude-code" }
+
+# ═══════════════════════════════════════════════════════════
+# Storage Targets
+# ═══════════════════════════════════════════════════════════
+
+[storage]
+settings = { kind = "settings", scope = "workspace" }
+secrets = { kind = "secrets", scope = "global" }
+globalState = { kind = "state", scope = "global" }
+workspaceState = { kind = "state", scope = "workspace" }
+webviewState = { kind = "vscodeStorage", scope = "webview" }
+webviewLocal = { kind = "localStorage", scope = "webview" }
+sqlite = { kind = "sqlite", scope = "workspace" }
+agentConfig = { kind = "file", scope = "workspace", location = ".claude/config.local.toml" }

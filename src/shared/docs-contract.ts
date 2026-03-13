@@ -1,4 +1,4 @@
-export type DocsSource = "settings" | "extension" | "workspace" | "none";
+export type DocsSource = "settings" | "extension" | "local" | "none";
 
 export type DocGroup = "docs" | "runbooks" | "plans" | "skills";
 

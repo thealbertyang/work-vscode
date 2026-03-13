@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
-import { getWebviewPath } from "../providers/data/atlassian/atlassianConfig";
+import { getWebviewPath } from "../providers/data/jira/jiraConfig";
 
 export function resolveWebviewPath(_extensionPath: string): string {
   const configured = getWebviewPath();
@@ -20,7 +20,7 @@ export function resolveWebviewRoot(extensionPath: string): string {
   const folders = vscode.workspace.workspaceFolders ?? [];
   for (const folder of folders) {
     const root = folder.uri.fsPath;
-    const repoCandidate = path.join(root, "repos", "vscode", "extensions", "atlassian");
+    const repoCandidate = path.join(root, "repos", "work", "vscode");
     if (fs.existsSync(path.join(repoCandidate, "src", "webview", "src"))) {
       return repoCandidate;
     }

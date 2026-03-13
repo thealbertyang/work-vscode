@@ -224,7 +224,7 @@ function ExecutePage() {
     );
   }
 
-  const allAutomations = index ? [...index.global, ...index.workspace] : [];
+  const allAutomations = index ? [...index.global, ...index.local] : [];
   const activeAutomations = allAutomations.filter((a) => a.status === "ACTIVE");
   const inactiveAutomations = allAutomations.filter((a) => a.status !== "ACTIVE");
 
@@ -243,7 +243,7 @@ function ExecutePage() {
           </div>
           <p className="execute-empty-title">No automations</p>
           <p className="execute-empty-hint">
-            Add automation configs to <code>~/.codex/automations/</code> or <code>_agents/automations/</code> in your workspace.
+            Add automation configs to <code>~/.codex/automations/</code> or <code>.claude/automations/</code> in your work.
           </p>
         </div>
       )}

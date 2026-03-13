@@ -41,7 +41,7 @@ export const getIpcEvent = (message: unknown): IpcMessage | undefined => {
   if (message.kind === "event" && typeof message.name === "string") {
     return { name: message.name, payload: message.payload };
   }
-  if (message.type === "atlassian:webview-ready") {
+  if (message.type === "work:webview-ready") {
     return { name: IPC_EVENTS.WEBVIEW_READY };
   }
   return undefined;
@@ -54,7 +54,7 @@ export const getIpcCommand = (message: unknown): IpcMessage | undefined => {
   if (message.kind === "command" && typeof message.name === "string") {
     return { name: message.name, payload: message.payload };
   }
-  if (message.command === "atlassian:refreshWebview") {
+  if (message.command === "work:refreshWebview") {
     return { name: IPC_COMMANDS.REFRESH_WEBVIEW };
   }
   return undefined;

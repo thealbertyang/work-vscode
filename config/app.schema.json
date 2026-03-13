@@ -1,8 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://albertyang.dev/schemas/work-app-engine-config.schema.json",
   "title": "Universal App Engine Config",
   "description": "Developer-facing engine configuration that defines app model sources/outputs for deterministic generation and workspace caching.",
   "type": "object",
+  "allOf": [
+    {
+      "$ref": "../../shared/schemas/base.schema.json#/$defs/schemaDocument"
+    }
+  ],
   "additionalProperties": false,
   "properties": {
     "version": {
@@ -68,8 +74,11 @@
           "description": "Case-insensitive substring patterns for keys to redact."
         }
       }
+    },
+    "meta": {
+      "$ref": "../../shared/schemas/meta.schema.json#/$defs/metaEnvelope",
+      "description": "Optional shared metadata envelope for identity/access/policy/topology/runtime context."
     }
   },
   "required": ["version", "outputs", "sources"]
 }
-

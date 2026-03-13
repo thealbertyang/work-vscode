@@ -22,13 +22,13 @@ type StageLayoutProps = {
 };
 
 const STAGE_ICONS: Record<string, string> = {
-  calendar: "\u{1F4C5}",
-  play: "\u25B6",
-  eye: "\u{1F441}",
-  rocket: "\u{1F680}",
-  pulse: "\u{1F4C8}",
-  book: "\u{1F4D6}",
-  gear: "\u2699",
+  calendar: "codicon-calendar",
+  play: "codicon-play",
+  eye: "codicon-eye",
+  rocket: "codicon-rocket",
+  pulse: "codicon-graph-line",
+  book: "codicon-book",
+  gear: "codicon-gear",
 };
 
 export function StageLayout({

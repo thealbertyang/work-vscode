@@ -1,10 +1,10 @@
 [
   {
-    "id": "atlassian.openApp",
+    "id": "work.openApp",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "deliveries": [
       "ui-control"
@@ -19,11 +19,11 @@
     }
   },
   {
-    "id": "atlassian.login",
+    "id": "work.login",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "deliveries": [
       "ui-control"
@@ -38,11 +38,11 @@
     }
   },
   {
-    "id": "atlassian.logout",
+    "id": "work.logout",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "deliveries": [
       "ui-control"
@@ -57,11 +57,11 @@
     }
   },
   {
-    "id": "atlassian.refresh",
+    "id": "work.refresh",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "deliveries": [
       "ui-control"
@@ -76,11 +76,11 @@
     }
   },
   {
-    "id": "atlassian.runDevWebview",
+    "id": "work.refreshStoryTasks",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "deliveries": [
       "ui-control"
@@ -95,11 +95,11 @@
     }
   },
   {
-    "id": "atlassian.restartExtensionHost",
+    "id": "work.runDevWebview",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "deliveries": [
       "ui-control"
@@ -114,11 +114,11 @@
     }
   },
   {
-    "id": "atlassian.reloadWebviews",
+    "id": "work.restartExtensionHost",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "deliveries": [
       "ui-control"
@@ -133,11 +133,11 @@
     }
   },
   {
-    "id": "atlassian.syncEnvToSettings",
+    "id": "work.reloadWebviews",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "deliveries": [
       "ui-control"
@@ -152,11 +152,11 @@
     }
   },
   {
-    "id": "atlassian.reinstallExtension",
+    "id": "work.syncEnvToSettings",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "deliveries": [
       "ui-control"
@@ -171,11 +171,11 @@
     }
   },
   {
-    "id": "atlassian.openIssue",
+    "id": "work.reinstallExtension",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "deliveries": [
       "ui-control"
@@ -190,626 +190,16 @@
     }
   },
   {
-    "id": "atlassian.rpc.showInformation",
+    "id": "work.openIssue",
     "layer": "interface",
     "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
+    "kind": "command",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
+    "deliveries": [
+      "ui-control"
+    ],
     "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.getTheme",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.setTheme",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.onThemeChange",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.registerChannel",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.unregisterChannel",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.sendMessage",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.addMessageListener",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.rmMessageListener",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.execCommand",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.axiosGet",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.axiosPost",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.axiosPut",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.axiosDelete",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.onDidOpenTextDocument",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.getState",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.getIssue",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.listIssues",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.getTriageState",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.runTriage",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.getDocsIndex",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.getDocContent",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.revealDocAsset",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.saveApiToken",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.disconnect",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.openSettings",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.syncEnvToSettings",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.openIssueInBrowser",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.reinstallExtension",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.runDevWebview",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.restartExtensionHost",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.reloadWebviews",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.startDevTaskTerminal",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.getAutomations",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.getAutomationRuns",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.rpc.getUniversalConfig",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "atlassian.app.open",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "action",
-    "project": "atlassian",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "resolves": "atlassian.openApp",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -819,14 +209,16 @@
     }
   },
   {
-    "id": "atlassian.app.login",
+    "id": "work.startTaskTerminal",
     "layer": "interface",
     "domain": "app",
-    "kind": "action",
-    "project": "atlassian",
+    "kind": "command",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
+    "deliveries": [
+      "ui-control"
+    ],
     "spec": "contract",
-    "resolves": "atlassian.login",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -836,14 +228,16 @@
     }
   },
   {
-    "id": "atlassian.app.logout",
+    "id": "work.openAgentChat",
     "layer": "interface",
     "domain": "app",
-    "kind": "action",
-    "project": "atlassian",
+    "kind": "command",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
+    "deliveries": [
+      "ui-control"
+    ],
     "spec": "contract",
-    "resolves": "atlassian.logout",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -853,14 +247,16 @@
     }
   },
   {
-    "id": "atlassian.app.refresh",
+    "id": "work.attachAgentSession",
     "layer": "interface",
     "domain": "app",
-    "kind": "action",
-    "project": "atlassian",
+    "kind": "command",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
+    "deliveries": [
+      "ui-control"
+    ],
     "spec": "contract",
-    "resolves": "atlassian.refresh",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -870,14 +266,16 @@
     }
   },
   {
-    "id": "atlassian.issue.open",
+    "id": "work.startStoryAgent",
     "layer": "interface",
     "domain": "app",
-    "kind": "action",
-    "project": "atlassian",
+    "kind": "command",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
+    "deliveries": [
+      "ui-control"
+    ],
     "spec": "contract",
-    "resolves": "atlassian.openIssue",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -887,14 +285,16 @@
     }
   },
   {
-    "id": "atlassian.dev.runWebview",
+    "id": "work.newStoryAgent",
     "layer": "interface",
     "domain": "app",
-    "kind": "action",
-    "project": "atlassian",
+    "kind": "command",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
+    "deliveries": [
+      "ui-control"
+    ],
     "spec": "contract",
-    "resolves": "atlassian.rpc.runDevWebview",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -904,14 +304,16 @@
     }
   },
   {
-    "id": "atlassian.dev.restartExtensionHost",
+    "id": "work.openAgentTerminal",
     "layer": "interface",
     "domain": "app",
-    "kind": "action",
-    "project": "atlassian",
+    "kind": "command",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
+    "deliveries": [
+      "ui-control"
+    ],
     "spec": "contract",
-    "resolves": "atlassian.rpc.restartExtensionHost",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -921,14 +323,643 @@
     }
   },
   {
-    "id": "atlassian.dev.reloadWebviews",
+    "id": "work.rpc.showInformation",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.getTheme",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.setTheme",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.onThemeChange",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.registerChannel",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.unregisterChannel",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.sendMessage",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.addMessageListener",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.rmMessageListener",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.execCommand",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.axiosGet",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.axiosPost",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.axiosPut",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.axiosDelete",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.onDidOpenTextDocument",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.getState",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.getIssue",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.listIssues",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.getTriageState",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.runTriage",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.getDocsIndex",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.getDocContent",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.revealDocAsset",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.saveApiToken",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.disconnect",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.openSettings",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.syncEnvToSettings",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.openIssueInBrowser",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.reinstallExtension",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.runDevWebview",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.restartExtensionHost",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.reloadWebviews",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.startTaskTerminal",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.getAutomations",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.getAutomationRuns",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.getUniversalConfig",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.openAgentTerminal",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "host",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.app.open",
     "layer": "interface",
     "domain": "app",
     "kind": "action",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "spec": "contract",
-    "resolves": "atlassian.rpc.reloadWebviews",
+    "resolves": "work.openApp",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -938,14 +969,14 @@
     }
   },
   {
-    "id": "atlassian.dev.syncEnvToSettings",
+    "id": "work.app.login",
     "layer": "interface",
     "domain": "app",
     "kind": "action",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "spec": "contract",
-    "resolves": "atlassian.rpc.syncEnvToSettings",
+    "resolves": "work.login",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -955,14 +986,14 @@
     }
   },
   {
-    "id": "atlassian.dev.reinstallExtension",
+    "id": "work.app.logout",
     "layer": "interface",
     "domain": "app",
     "kind": "action",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "spec": "contract",
-    "resolves": "atlassian.rpc.reinstallExtension",
+    "resolves": "work.logout",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -972,14 +1003,14 @@
     }
   },
   {
-    "id": "atlassian.dev.startTaskTerminal",
+    "id": "work.app.refresh",
     "layer": "interface",
     "domain": "app",
     "kind": "action",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "spec": "contract",
-    "resolves": "atlassian.rpc.startDevTaskTerminal",
+    "resolves": "work.refresh",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -989,14 +1020,14 @@
     }
   },
   {
-    "id": "atlassian.universal.getConfig",
+    "id": "work.app.refreshStoryTasks",
     "layer": "interface",
     "domain": "app",
     "kind": "action",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "spec": "contract",
-    "resolves": "atlassian.rpc.getUniversalConfig",
+    "resolves": "work.refreshStoryTasks",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -1006,14 +1037,14 @@
     }
   },
   {
-    "id": "atlassian.settings.open",
+    "id": "work.issue.open",
     "layer": "interface",
     "domain": "app",
     "kind": "action",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "spec": "contract",
-    "resolves": "atlassian.rpc.openSettings",
+    "resolves": "work.openIssue",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -1023,14 +1054,14 @@
     }
   },
   {
-    "id": "atlassian.auth.saveApiToken",
+    "id": "work.dev.runWebview",
     "layer": "interface",
     "domain": "app",
     "kind": "action",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "spec": "contract",
-    "resolves": "atlassian.rpc.saveApiToken",
+    "resolves": "work.rpc.runDevWebview",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -1040,14 +1071,14 @@
     }
   },
   {
-    "id": "atlassian.auth.disconnect",
+    "id": "work.dev.restartExtensionHost",
     "layer": "interface",
     "domain": "app",
     "kind": "action",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "spec": "contract",
-    "resolves": "atlassian.rpc.disconnect",
+    "resolves": "work.rpc.restartExtensionHost",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -1057,14 +1088,14 @@
     }
   },
   {
-    "id": "atlassian.issue.openBrowser",
+    "id": "work.dev.reloadWebviews",
     "layer": "interface",
     "domain": "app",
     "kind": "action",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/commands.ts",
     "spec": "contract",
-    "resolves": "atlassian.rpc.openIssueInBrowser",
+    "resolves": "work.rpc.reloadWebviews",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -1074,11 +1105,232 @@
     }
   },
   {
-    "id": "atlassian.webview.ready",
+    "id": "work.dev.syncEnvToSettings",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.syncEnvToSettings",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.dev.reinstallExtension",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.reinstallExtension",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.dev.startTaskTerminal",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.startTaskTerminal",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.universal.getConfig",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.getUniversalConfig",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.agent.openChat",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.openAgentChat",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.agent.attachSession",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.attachAgentSession",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.agent.startStory",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.startStoryAgent",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.agent.newStory",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.newStoryAgent",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.agent.openTerminal",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.openAgentTerminal",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.settings.open",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.openSettings",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.auth.saveApiToken",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.saveApiToken",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.auth.disconnect",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.disconnect",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.issue.openBrowser",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.openIssueInBrowser",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.webview.ready",
     "layer": "protocol",
     "domain": "ipc",
     "kind": "signal",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/ipc.ts",
     "spec": "contract",
     "access": {
@@ -1091,11 +1343,11 @@
     }
   },
   {
-    "id": "atlassian.route.changed",
+    "id": "work.route.changed",
     "layer": "protocol",
     "domain": "ipc",
     "kind": "signal",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/ipc.ts",
     "spec": "contract",
     "access": {
@@ -1108,11 +1360,11 @@
     }
   },
   {
-    "id": "atlassian.ui.action",
+    "id": "work.ui.action",
     "layer": "protocol",
     "domain": "ipc",
     "kind": "signal",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/ipc.ts",
     "spec": "contract",
     "access": {
@@ -1125,11 +1377,11 @@
     }
   },
   {
-    "id": "atlassian.ui.event",
+    "id": "work.ui.event",
     "layer": "protocol",
     "domain": "ipc",
     "kind": "signal",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/ipc.ts",
     "spec": "contract",
     "access": {
@@ -1142,11 +1394,11 @@
     }
   },
   {
-    "id": "atlassian.route.navigate",
+    "id": "work.route.navigate",
     "layer": "protocol",
     "domain": "ipc",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/ipc.ts",
     "spec": "contract",
     "access": {
@@ -1159,11 +1411,11 @@
     }
   },
   {
-    "id": "atlassian.webview.refresh",
+    "id": "work.webview.refresh",
     "layer": "protocol",
     "domain": "ipc",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/ipc.ts",
     "spec": "contract",
     "access": {
@@ -1176,11 +1428,11 @@
     }
   },
   {
-    "id": "atlassian.state.updated",
+    "id": "work.state.updated",
     "layer": "protocol",
     "domain": "ipc",
     "kind": "command",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/ipc.ts",
     "spec": "contract",
     "access": {
@@ -1193,11 +1445,11 @@
     }
   },
   {
-    "id": "atlassian.route.plan",
+    "id": "work.route.plan",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "plan",
     "spec": "contract",
@@ -1215,11 +1467,11 @@
     }
   },
   {
-    "id": "atlassian.route.planWeekly",
+    "id": "work.route.planWeekly",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "plan",
     "spec": "contract",
@@ -1237,11 +1489,11 @@
     }
   },
   {
-    "id": "atlassian.route.planMonthly",
+    "id": "work.route.planMonthly",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "plan",
     "spec": "contract",
@@ -1259,11 +1511,11 @@
     }
   },
   {
-    "id": "atlassian.route.planQuarterly",
+    "id": "work.route.planQuarterly",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "plan",
     "spec": "contract",
@@ -1281,11 +1533,11 @@
     }
   },
   {
-    "id": "atlassian.route.planCareer",
+    "id": "work.route.planCareer",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "plan",
     "spec": "contract",
@@ -1303,11 +1555,11 @@
     }
   },
   {
-    "id": "atlassian.route.execute",
+    "id": "work.route.execute",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "execute",
     "spec": "contract",
@@ -1325,11 +1577,11 @@
     }
   },
   {
-    "id": "atlassian.route.review",
+    "id": "work.route.review",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "review",
     "spec": "contract",
@@ -1347,11 +1599,11 @@
     }
   },
   {
-    "id": "atlassian.route.reviewIssue",
+    "id": "work.route.reviewIssue",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "review",
     "spec": "contract",
@@ -1368,11 +1620,11 @@
     }
   },
   {
-    "id": "atlassian.route.ship",
+    "id": "work.route.ship",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "ship",
     "spec": "contract",
@@ -1390,11 +1642,11 @@
     }
   },
   {
-    "id": "atlassian.route.observe",
+    "id": "work.route.observe",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "observe",
     "spec": "contract",
@@ -1412,11 +1664,11 @@
     }
   },
   {
-    "id": "atlassian.route.systemRegistry",
+    "id": "work.route.systemRegistry",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "system",
     "spec": "contract",
@@ -1433,11 +1685,11 @@
     }
   },
   {
-    "id": "atlassian.route.systemSettings",
+    "id": "work.route.systemSettings",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "system",
     "spec": "contract",
@@ -1455,11 +1707,11 @@
     }
   },
   {
-    "id": "atlassian.route.systemDocs",
+    "id": "work.route.systemDocs",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "stage": "system",
     "spec": "contract",
@@ -1477,11 +1729,11 @@
     }
   },
   {
-    "id": "atlassian.route.appDispatch",
+    "id": "work.route.appDispatch",
     "layer": "interface",
     "domain": "view",
     "kind": "route",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/routes.ts",
     "spec": "contract",
     "meta": {
@@ -1497,11 +1749,11 @@
     }
   },
   {
-    "id": "atlassian.baseUrl",
+    "id": "work.baseUrl",
     "layer": "store",
     "domain": "config",
     "kind": "setting",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/settings-registry.ts",
     "spec": "schema",
     "access": {
@@ -1514,17 +1766,18 @@
     "meta": {
       "type": "string",
       "envKeys": [
+        "WORK_BASE_URL",
         "ATLASSIAN_BASE_URL",
         "JIRA_URL"
       ]
     }
   },
   {
-    "id": "atlassian.jiraUrl",
+    "id": "work.jiraUrl",
     "layer": "store",
     "domain": "config",
     "kind": "setting",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/settings-registry.ts",
     "spec": "schema",
     "access": {
@@ -1538,16 +1791,17 @@
       "type": "string",
       "envKeys": [
         "JIRA_URL",
+        "WORK_BASE_URL",
         "ATLASSIAN_BASE_URL"
       ]
     }
   },
   {
-    "id": "atlassian.email",
+    "id": "work.email",
     "layer": "store",
     "domain": "config",
     "kind": "setting",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/settings-registry.ts",
     "spec": "schema",
     "access": {
@@ -1560,17 +1814,18 @@
     "meta": {
       "type": "string",
       "envKeys": [
+        "WORK_EMAIL",
         "ATLASSIAN_EMAIL",
         "JIRA_USER_EMAIL"
       ]
     }
   },
   {
-    "id": "atlassian.apiToken",
+    "id": "work.apiToken",
     "layer": "store",
     "domain": "config",
     "kind": "setting",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/settings-registry.ts",
     "spec": "schema",
     "access": {
@@ -1584,17 +1839,18 @@
     "meta": {
       "type": "string",
       "envKeys": [
+        "WORK_API_TOKEN",
         "ATLASSIAN_API_TOKEN",
         "JIRA_API_TOKEN"
       ]
     }
   },
   {
-    "id": "atlassian.jql",
+    "id": "work.jql",
     "layer": "store",
     "domain": "config",
     "kind": "setting",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/settings-registry.ts",
     "spec": "schema",
     "access": {
@@ -1612,11 +1868,11 @@
     }
   },
   {
-    "id": "atlassian.maxResults",
+    "id": "work.maxResults",
     "layer": "store",
     "domain": "config",
     "kind": "setting",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/settings-registry.ts",
     "spec": "schema",
     "access": {
@@ -1631,11 +1887,11 @@
     }
   },
   {
-    "id": "atlassian.docsPath",
+    "id": "work.docsPath",
     "layer": "store",
     "domain": "config",
     "kind": "setting",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/settings-registry.ts",
     "spec": "schema",
     "access": {
@@ -1648,16 +1904,17 @@
     "meta": {
       "type": "string",
       "envKeys": [
+        "WORK_DOCS_PATH",
         "ATLASSIAN_DOCS_PATH"
       ]
     }
   },
   {
-    "id": "atlassian.webviewPath",
+    "id": "work.webviewPath",
     "layer": "store",
     "domain": "config",
     "kind": "setting",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/settings-registry.ts",
     "spec": "schema",
     "access": {
@@ -1670,16 +1927,17 @@
     "meta": {
       "type": "string",
       "envKeys": [
+        "WORK_WEBVIEW_PATH",
         "ATLASSIAN_WEBVIEW_PATH"
       ]
     }
   },
   {
-    "id": "atlassian.webviewServerUrl",
+    "id": "work.webviewServerUrl",
     "layer": "store",
     "domain": "config",
     "kind": "setting",
-    "project": "atlassian",
+    "project": "work",
     "source": "src/shared/contracts/settings-registry.ts",
     "spec": "schema",
     "access": {
@@ -1692,6 +1950,7 @@
     "meta": {
       "type": "string",
       "envKeys": [
+        "WORK_WEBVIEW_SERVER_URL",
         "ATLASSIAN_WEBVIEW_SERVER_URL"
       ]
     }

@@ -13,11 +13,11 @@ src/webview/**
 .vscodeignore
 atlassian-sprint-view.vsix
 bun.lock
-_agents/config.local.toml
-_agents/app.config.toml
-_agents/app-global-state.json
-_agents/state.json
-_agents/config.schema.json
+.claude/config.local.toml
+.claude/app.config.toml
+.claude/app-global-state.json
+.claude/state.json
+.claude/config.schema.json
 .webview-dev-url
 .old_modules-*
 **/.old_modules-*

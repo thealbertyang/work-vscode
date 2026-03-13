@@ -88,7 +88,7 @@ export function AppOverlay({
     });
     if (returnFocusToUrlBarRef.current) {
       returnFocusToUrlBarRef.current = false;
-      window.dispatchEvent(new Event("atlassian:urlBarFocus"));
+      window.dispatchEvent(new Event("work:urlBarFocus"));
     }
   }, [withViewTransition]);
 
@@ -179,10 +179,10 @@ export function AppOverlay({
       const detail = (event as CustomEvent).detail as { query?: string; returnFocus?: boolean } | undefined;
       openPalette({ query: detail?.query, returnFocus: detail?.returnFocus });
     };
-    window.addEventListener("atlassian:commandPalette", handler);
+    window.addEventListener("work:commandPalette", handler);
     return () =>
       window.removeEventListener(
-        "atlassian:commandPalette",
+        "work:commandPalette",
         handler,
       );
   }, [openPalette]);

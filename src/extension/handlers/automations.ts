@@ -11,7 +11,7 @@ import type {
 
 type AutomationsDependencies = Pick<HandlerDependencies, "context">;
 
-const CODEX_HOME = path.join(process.env.HOME ?? "", ".codex");
+const CODEX_HOME = process.env.CODEX_HOME?.trim() || path.join(process.env.HOME ?? "", ".codex");
 const AUTOMATIONS_DIR = "automations";
 const AUTOMATION_TOML = "automation.toml";
 const MEMORY_FILE = "memory.md";
@@ -159,16 +159,16 @@ const isFile = (p: string): boolean => {
 const GLOBAL_SYMLINK_NAME = ".codex-global";
 
 /**
- * Ensure a symlink exists at `_agents/automations/.codex-global` -> `~/.codex/automations/`.
+ * Ensure a symlink exists at `.claude/automations/.codex-global` -> `~/.codex/automations/`.
  * This lets VS Code file watchers on the workspace observe global automation changes.
  */
-const ensureGlobalSymlink = (workspaceAgentsDir: string): string | null => {
+const ensureGlobalSymlink = (workAgentsDir: string): string | null => {
   const globalDir = path.join(CODEX_HOME, AUTOMATIONS_DIR);
   if (!isDirectory(globalDir)) return null;
 
-  const agentsAutomationsDir = path.join(workspaceAgentsDir, AUTOMATIONS_DIR);
+  const agentsAutomationsDir = path.join(workAgentsDir, AUTOMATIONS_DIR);
 
-  // Ensure _agents/automations/ exists
+  // Ensure .claude/automations/ exists
   try {
     fs.mkdirSync(agentsAutomationsDir, { recursive: true });
   } catch {
@@ -321,11 +321,11 @@ export const createAutomationHandlers = ({ context: _context }: AutomationsDepen
 
     const workspaceFolder = workspace.workspaceFolders?.[0];
     const agentsDir = workspaceFolder
-      ? path.join(workspaceFolder.uri.fsPath, "_agents")
+      ? path.join(workspaceFolder.uri.fsPath, ".claude")
       : null;
 
-    // Ensure symlink: _agents/automations/.codex-global -> ~/.codex/automations/
-    // This lets VS Code file watchers observe global automation changes from the workspace.
+    // Ensure symlink: .claude/automations/.codex-global -> ~/.codex/automations/
+    // This lets VS Code file watchers observe global automation changes from the work.
     let globalDir = path.join(CODEX_HOME, AUTOMATIONS_DIR);
     if (agentsDir) {
       const symlink = ensureGlobalSymlink(agentsDir);
@@ -337,15 +337,15 @@ export const createAutomationHandlers = ({ context: _context }: AutomationsDepen
 
     const globalAutomations = loadAutomationsFromDir(globalDir, "global", timingMap);
 
-    let workspaceAutomations: Automation[] = [];
+    let localAutomations: Automation[] = [];
     if (agentsDir) {
       const workspaceDir = path.join(agentsDir, AUTOMATIONS_DIR);
-      workspaceAutomations = loadAutomationsFromDir(workspaceDir, "workspace", timingMap);
+      localAutomations = loadAutomationsFromDir(workspaceDir, "local", timingMap);
     }
 
     return {
       global: globalAutomations,
-      workspace: workspaceAutomations,
+      local: localAutomations,
     };
   },
 

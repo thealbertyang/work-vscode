@@ -16,7 +16,7 @@
     "out",
     "src/webview",
     "scripts",
-    "src-archive-2026-02-04",
-    "webview-ui-archive-2026-02-04"
+    "src-archive*",
+    "webview-ui-archive*"
   ]
 }

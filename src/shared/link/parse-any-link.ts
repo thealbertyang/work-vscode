@@ -18,7 +18,7 @@ export interface ParsedLink {
   search: Record<string, string>;
   /** Human-readable display string for omnibox. */
   display: string;
-  /** Canonical intent URL (`app://atlassian/route/plan`) when the input was an intent URL. */
+  /** Canonical intent URL (`app://work/route/plan`) when the input was an intent URL. */
   canonicalIntent?: string;
   /** Wrapper params preserved for reconstruction. */
   passthrough?: URLSearchParams;
@@ -75,16 +75,13 @@ const normalizeDispatcherIdOrPath = (appId: string, kind: string, idOrPath: stri
  * Unified "paste anything" link parser.
  *
  * Handles:
- * - `app://atlassian/route/plan` (canonical intent)
- * - `atlassian://route/plan` (legacy intent)
- * - `vscode://publisher.atlassian/open/plan` (VS Code deep link)
- * - `vscode-insiders://publisher.atlassian/open/plan`
- * - `http://localhost:5173/#/plan?view=compact` (dev browser)
+ * - `app://work/route/plan` (canonical intent)
+ * - `work://route/plan` (legacy intent)
+ * - `vscode://publisher.work/app/work/route/plan` (VS Code deep link)
+ * - `http://localhost:5173/#/app/work/route/plan` (dev browser)
  * - `#/plan?view=compact` (hash route)
  * - `/plan` (raw path)
- * - `/open/plan`, `/openApp/plan` (legacy deep link paths)
- * - `/app/atlassian/route/plan` (dispatcher wrapper)
- * - `/jira/ABC-123` -> `/review/issues/ABC-123` (legacy redirects)
+ * - `/app/work/route/plan` (dispatcher wrapper)
  */
 export const parseAnyLink = (input: string): ParsedLink | null => {
   const value = String(input ?? "").trim();
@@ -143,7 +140,7 @@ export const parseAnyLink = (input: string): ParsedLink | null => {
         }
       }
 
-      // Legacy intent scheme (e.g. atlassian://route/plan)
+      // Legacy intent scheme (e.g. work://route/plan)
       if (protocol !== "http" && protocol !== "https") {
         const kind = url.host;
         if (kind && isUniversalIntentKind(kind)) {
@@ -162,7 +159,7 @@ export const parseAnyLink = (input: string): ParsedLink | null => {
           };
         }
 
-        // VS Code deep links: vscode://publisher.atlassian/open/plan
+        // VS Code deep links: vscode://publisher.work/open/plan
         if (url.hash) {
           const parsed = parseRouteHash(url.hash);
           const { app, wrapper } = stripWrapperParams(parsed.query);
@@ -240,7 +237,7 @@ export const parseAnyLink = (input: string): ParsedLink | null => {
     }
   }
 
-  // 4) Raw paths: "/plan", "/open/plan", "/app/atlassian/route/plan", "/jira/ABC-123"
+  // 4) Raw paths: "/plan", "/open/plan", "/app/work/route/plan", "/jira/ABC-123"
   const [pathPart, queryPart] = value.split("?");
   const hint = resolveRouteFromDeepLink({ path: pathPart, query: queryPart });
   if (hint?.path) {

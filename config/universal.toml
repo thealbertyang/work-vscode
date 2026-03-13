@@ -1,19 +1,33 @@
 [app]
-id = "atlassian"
-name = "Atlassian Sprint"
-namespace = "atlassian"
+id = "work"
+name = "Work"
+namespace = "work"
 defaultRoute = "plan"
 intentScheme = "app"
 
 description = "Config-driven registry for actions, routes, commands, and UI."
 
+[app.compat]
+legacyIds = ["atlassian"]
+legacyEnvPrefixes = ["ATLASSIAN"]
+legacyRouteHintKeys = ["__atlassianRoute"]
+legacyWebviewMarkers = ["atlassian-webview"]
+
+[metadata]
+"brain.origin" = "https://localhost:3000"
+"brain.healthPath" = "/healthz"
+"brain.statusPath" = "/api/status"
+"brain.routesPath" = "/api/routes"
+"brain.eventsTopic" = "events"
+"brain.eventsWsUrl" = "wss://localhost:3000/ws?topic=events"
+
 [namespaces]
-app = "atlassian"
-actions = "atlassian"
-commands = "atlassian"
-events = "atlassian"
-routes = "atlassian"
-settings = "atlassian"
+app = "work"
+actions = "work"
+commands = "work"
+events = "work"
+routes = "work"
+settings = "work"
 
 # --- Platforms / Environments ---
 
@@ -161,17 +175,17 @@ path = "/plan"
 view = "plan"
 
 [actions.appOpen]
-id = "atlassian.app.open"
-command = "atlassian.openApp"
+id = "work.app.open"
+command = "work.openApp"
 route = "plan"
 
 [commands.openApp]
-id = "atlassian.openApp"
+id = "work.openApp"
 kind = "vscode"
-title = "Atlassian: Open App"
+title = "Work: Open App"
 
 [events.routeChanged]
-id = "atlassian.route.changed"
+id = "work.route.changed"
 kind = "ipc"
 
 # ── URL State Registry ──────────────────────────────────────
@@ -222,3 +236,192 @@ type = "enum"
 values = ["plan", "execute", "review", "ship", "observe", "system"]
 description = "Active lifecycle stage override"
 history = "push"
+
+# ── Topology ───────────────────────────────────────────────
+# Declares domains, derivation rules, and architectural layers.
+# One config declares it, one module derives it, everything consumes it.
+
+[topology]
+defaultDomain = "app"
+
+[topology.domains.app]
+id = "app"
+label = "App"
+concern = "Runtime primitives, lifecycle, transport, routing, messaging"
+color = "var(--color-domain-app)"
+
+[topology.domains.identity]
+id = "identity"
+label = "Identity"
+concern = "Authentication, credentials, accounts"
+color = "var(--color-domain-identity)"
+
+[topology.domains.content]
+id = "content"
+label = "Content"
+concern = "Business logic, issues, triage, automations, external data"
+color = "var(--color-domain-content)"
+
+[topology.domains.view]
+id = "view"
+label = "View"
+concern = "Presentation, theme, layout, stage views"
+color = "var(--color-domain-view)"
+
+[topology.overrides]
+# VS Code commands
+"work.openApp" = "app"
+"work.refresh" = "app"
+"work.runDevWebview" = "app"
+"work.restartExtensionHost" = "app"
+"work.reloadWebviews" = "app"
+"work.syncEnvToSettings" = "app"
+"work.reinstallExtension" = "app"
+"work.login" = "identity"
+"work.logout" = "identity"
+"work.openIssue" = "content"
+"work.startTaskTerminal" = "app"
+# RPC methods
+showInformation = "app"
+execCommand = "app"
+getState = "app"
+registerChannel = "app"
+unregisterChannel = "app"
+sendMessage = "app"
+addMessageListener = "app"
+rmMessageListener = "app"
+axiosGet = "app"
+axiosPost = "app"
+axiosPut = "app"
+axiosDelete = "app"
+openSettings = "app"
+syncEnvToSettings = "app"
+startTaskTerminal = "app"
+getUniversalConfig = "app"
+getFullConfig = "app"
+getDocsIndex = "app"
+getDocContent = "app"
+revealDocAsset = "app"
+openDocInEditor = "app"
+restartExtensionHost = "app"
+reloadWebviews = "app"
+reinstallExtension = "app"
+saveApiToken = "identity"
+disconnect = "identity"
+getIssue = "content"
+listIssues = "content"
+openIssueInBrowser = "content"
+getTriageState = "content"
+runTriage = "content"
+getAutomations = "content"
+getAutomationRuns = "content"
+onDidOpenTextDocument = "app"
+buildExtension = "app"
+buildWebview = "app"
+runDevWebview = "app"
+getTheme = "view"
+setTheme = "view"
+onThemeChange = "view"
+# IPC commands / events
+"work.route.navigate" = "view"
+"work.webview.refresh" = "app"
+"work.state.updated" = "app"
+"work.webview.ready" = "app"
+"work.route.changed" = "view"
+"work.ui.action" = "app"
+"work.ui.event" = "app"
+
+[[topology.prefixRules]]
+prefix = "identity."
+domain = "identity"
+
+[[topology.prefixRules]]
+prefix = "content."
+domain = "content"
+
+[[topology.prefixRules]]
+prefix = "view."
+domain = "view"
+
+[[topology.prefixRules]]
+prefix = "app."
+domain = "app"
+
+[[topology.prefixRules]]
+prefix = "work.identity."
+domain = "identity"
+
+[[topology.prefixRules]]
+prefix = "work.content."
+domain = "content"
+
+[[topology.prefixRules]]
+prefix = "work.view."
+domain = "view"
+
+[[topology.prefixRules]]
+prefix = "work.app."
+domain = "app"
+
+[topology.stageMap]
+plan = "view"
+execute = "view"
+review = "view"
+ship = "view"
+observe = "view"
+system = "app"
+
+[topology.storageDomains]
+settings = ["app", "identity", "content"]
+secrets = ["identity"]
+globalState = ["app"]
+workspaceState = ["app"]
+globalFiles = ["app"]
+workspaceFiles = ["content"]
+webviewState = ["view"]
+webviewLocal = ["view"]
+webviewIndexedDb = ["view"]
+extensionSqlite = ["app", "content"]
+externalDatabase = ["content"]
+
+[topology.layers.kernel]
+id = "kernel"
+label = "Kernel"
+concern = "Runtime primitives"
+modules = ["app", "config", "messages"]
+
+[topology.layers.identity]
+id = "identity"
+label = "Identity"
+concern = "Authentication, credentials, accounts"
+modules = ["auth"]
+
+[topology.layers.data]
+id = "data"
+label = "Data"
+concern = "External I/O — HTTP client, state queries"
+modules = ["http"]
+
+[topology.layers.domain]
+id = "domain"
+label = "Domain"
+concern = "Business logic — issues, triage, automations"
+modules = ["issues", "triage", "automations"]
+
+[topology.layers.ui]
+id = "ui"
+label = "UI"
+concern = "Presentation — theme, layout, URL state"
+modules = ["theme"]
+
+[topology.layers.work]
+id = "work"
+label = "Work"
+concern = "Stage feature views — plan, execute, review, ship, observe"
+modules = ["plan", "execute", "review", "ship", "observe"]
+
+[topology.layers.system]
+id = "system"
+label = "System"
+concern = "Meta — settings, docs, registry, dev tools, configuration"
+modules = ["system", "settings", "docs", "dev", "universal"]

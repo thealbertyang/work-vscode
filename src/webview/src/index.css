@@ -2,12 +2,420 @@
   color-scheme: light dark;
 }
 
+/* VS Code theme → color-scheme sync.
+   VS Code sets body classes (vscode-dark, vscode-light, vscode-high-contrast*)
+   but does NOT set color-scheme. Without this, light-dark() follows
+   prefers-color-scheme (OS), not VS Code's theme — causing mismatches. */
+:root:has(body.vscode-dark),
+:root:has(body.vscode-high-contrast) {
+  color-scheme: dark;
+}
+:root:has(body.vscode-light),
+:root:has(body.vscode-high-contrast-light) {
+  color-scheme: light;
+}
+
+:root {
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     HIG Liquid Glass Design System v2 — Token Architecture
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* ── Scale tokens ── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* ── Color primitives (light-dark + oklch) ── */
+
+  /* Overlay fills — surface tinting for interaction states */
+  --fill-hover:        light-dark(oklch(0 0 0 / 0.04), oklch(1 0 0 / 0.06));
+  --fill-active:       light-dark(oklch(0 0 0 / 0.06), oklch(1 0 0 / 0.10));
+  --fill-active-hover: light-dark(oklch(0 0 0 / 0.09), oklch(1 0 0 / 0.14));
+
+  /* Edge — surface boundary ring (light edges stronger for glass definition) */
+  --edge-faint:  light-dark(oklch(0 0 0 / 0.08), oklch(1 0 0 / 0.06));
+  --edge-subtle: light-dark(oklch(0 0 0 / 0.12), oklch(1 0 0 / 0.08));
+  --edge-medium: light-dark(oklch(0 0 0 / 0.16), oklch(1 0 0 / 0.12));
+
+  /* Specular highlight — inner glint on glass surfaces */
+  --highlight:       light-dark(oklch(1 0 0 / 0.50), oklch(1 0 0 / 0.10));
+  --highlight-hover: light-dark(oklch(1 0 0 / 0.60), oklch(1 0 0 / 0.14));
+
+  /* Cast shadow — depth */
+  --cast-1: light-dark(oklch(0 0 0 / 0.06), oklch(0 0 0 / 0.18));
+  --cast-2: light-dark(oklch(0 0 0 / 0.08), oklch(0 0 0 / 0.22));
+  --cast-3: light-dark(oklch(0 0 0 / 0.10), oklch(0 0 0 / 0.30));
+  --cast-4: light-dark(oklch(0 0 0 / 0.14), oklch(0 0 0 / 0.35));
+  --cast-5: light-dark(oklch(0 0 0 / 0.24), oklch(0 0 0 / 0.45));
+
+  /* ── Composite shadows ── */
+  --shadow-border: 0 0 0 1px var(--edge-faint);
+  --shadow-sm:
+    0 0 0 1px var(--edge-faint),
+    0 1px 2px -1px var(--cast-2),
+    0 2px 4px 0 var(--cast-1);
+  --shadow-sm-hover:
+    0 0 0 1px var(--edge-subtle),
+    0 2px 4px -1px var(--cast-3),
+    0 4px 12px -2px var(--cast-2);
+  --shadow-md:
+    0 0 0 1px var(--edge-faint),
+    0 4px 12px -2px var(--cast-4),
+    0 8px 24px -4px var(--cast-2);
+  --shadow-lg: 0 12px 40px var(--cast-5);
+
+  /* ── Glass edge composites ── */
+  --glass-edge: 0 0 0 0.5px var(--edge-faint);
+  --glass-edge-active:
+    0 0 0 0.5px var(--edge-subtle),
+    inset 0 0.5px 0 0 var(--highlight);
+  --glass-edge-active-hover:
+    0 0 0 0.5px var(--edge-medium),
+    inset 0 0.5px 0 0 var(--highlight-hover);
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     1A. VS Code Theme Token Integration — Full Coverage
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* ── Surfaces ── */
+  --surface-primary:   var(--vscode-editor-background, light-dark(#fff, #1e1e1e));
+  --surface-secondary: var(--vscode-sideBar-background, light-dark(#f3f3f3, #252526));
+  --surface-elevated:  var(--vscode-editorWidget-background, light-dark(#f8f8f8, #2d2d30));
+  --surface-panel:     var(--vscode-panel-background, light-dark(#fff, #1e1e1e));
+  --surface-input:     var(--vscode-input-background, light-dark(#fff, #3c3c3c));
+  --surface-dropdown:  var(--vscode-dropdown-background, light-dark(#fff, #3c3c3c));
+
+  /* ── Text hierarchy ── */
+  --text-primary:    var(--vscode-foreground, light-dark(#1f2328, #cccccc));
+  --text-secondary:  var(--vscode-descriptionForeground, light-dark(#57606a, #969696));
+  --text-disabled:   var(--vscode-disabledForeground, light-dark(#8b949e, #5a5a5a));
+  --text-link:       var(--vscode-textLink-foreground, light-dark(#2c74d3, #4daafc));
+  --text-link-hover: var(--vscode-textLink-activeForeground, light-dark(#1a5fb4, #63b8ff));
+  --text-tertiary: color-mix(in oklch, var(--vscode-descriptionForeground, #57606a) 70%, transparent);
+
+  /* ── Interactive (Accent) ── */
+  --accent:              var(--vscode-button-background, oklch(0.55 0.15 250));
+  --accent-on:           var(--vscode-button-foreground, #ffffff);
+  --accent-hover:        var(--vscode-button-hoverBackground, light-dark(#1a5fb4, #3a9bff));
+  --accent-secondary-bg: var(--vscode-button-secondaryBackground, light-dark(#4f5b66, #3a3d41));
+  --accent-secondary-fg: var(--vscode-button-secondaryForeground, #ffffff);
+  --accent-secondary-hover: var(--vscode-button-secondaryHoverBackground, light-dark(#6c7a86, #505457));
+
+  /* ── Borders & Focus ── */
+  --border-primary: var(--vscode-panel-border, light-dark(#d0d7de, #2b2b2b));
+  --border-input:   var(--vscode-input-border, light-dark(#d0d7de, #3c3c3c));
+  --border-widget:  var(--vscode-editorWidget-border, light-dark(#d0d7de, #454545));
+  --focus-ring:     var(--vscode-focusBorder, #0078d4);
+
+  /* ── List/Tree ── */
+  --list-hover-bg:    var(--vscode-list-hoverBackground, var(--fill-hover));
+  --list-hover-fg:    var(--vscode-list-hoverForeground);
+  --list-active-bg:   var(--vscode-list-activeSelectionBackground, light-dark(#e8f0fe, #094771));
+  --list-active-fg:   var(--vscode-list-activeSelectionForeground, light-dark(#1f2328, #ffffff));
+  --list-inactive-bg: var(--vscode-list-inactiveSelectionBackground, light-dark(#e8eaed, #37373d));
+
+  /* ── Status / Feedback ── */
+  --color-error:   var(--vscode-errorForeground, light-dark(oklch(0.52 0.17 27), oklch(0.78 0.14 27)));
+  --color-warning: var(--vscode-editorWarning-foreground, light-dark(oklch(0.52 0.15 75), oklch(0.78 0.12 75)));
+  --color-info:    var(--vscode-editorInfo-foreground, light-dark(oklch(0.52 0.13 250), oklch(0.78 0.10 250)));
+  --color-success: light-dark(oklch(0.52 0.15 145), oklch(0.78 0.12 145));
+
+  /* Legacy status aliases (App.css references these) */
+  --color-ok:      light-dark(oklch(0.52 0.17 145), oklch(0.76 0.14 145));
+  --color-warn:    light-dark(oklch(0.50 0.18 27),  oklch(0.74 0.15 27));
+  --color-muted:   var(--vscode-descriptionForeground, #57606a);
+  --color-ok-bg:   light-dark(oklch(0.52 0.17 145 / 0.12), oklch(0.76 0.14 145 / 0.14));
+  --color-warn-bg: light-dark(oklch(0.50 0.18 27 / 0.12),  oklch(0.74 0.15 27 / 0.14));
+
+  /* ── Badges ── */
+  --badge-bg: var(--vscode-badge-background, light-dark(#e8eaed, #4d4d4d));
+  --badge-fg: var(--vscode-badge-foreground, light-dark(#1f2328, #ffffff));
+
+  /* ── Scrollbar ── */
+  --scrollbar-thumb:        var(--vscode-scrollbarSlider-background, light-dark(oklch(0 0 0 / 0.15), oklch(1 0 0 / 0.20)));
+  --scrollbar-thumb-hover:  var(--vscode-scrollbarSlider-hoverBackground, light-dark(oklch(0 0 0 / 0.25), oklch(1 0 0 / 0.30)));
+  --scrollbar-thumb-active: var(--vscode-scrollbarSlider-activeBackground, light-dark(oklch(0 0 0 / 0.35), oklch(1 0 0 / 0.40)));
+
+  /* ── Charts ── */
+  --chart-red:    var(--vscode-charts-red, light-dark(oklch(0.55 0.20 27), oklch(0.72 0.16 27)));
+  --chart-blue:   var(--vscode-charts-blue, light-dark(oklch(0.55 0.15 250), oklch(0.72 0.12 250)));
+  --chart-green:  var(--vscode-charts-green, light-dark(oklch(0.55 0.17 145), oklch(0.72 0.14 145)));
+  --chart-yellow: var(--vscode-charts-yellow, light-dark(oklch(0.65 0.16 90), oklch(0.78 0.13 90)));
+  --chart-purple: var(--vscode-charts-purple, light-dark(oklch(0.50 0.15 310), oklch(0.72 0.12 310)));
+  --chart-orange: var(--vscode-charts-orange, light-dark(oklch(0.60 0.16 55), oklch(0.75 0.13 55)));
+
+  /* ── Progress ── */
+  --progress-bg: var(--vscode-progressBar-background, var(--accent));
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     1B. Liquid Glass Variants (3-tier)
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* Regular — navigation, controls, URL bar */
+  --glass-regular-bg:   light-dark(oklch(0.94 0.005 240 / 0.80), oklch(0.20 0.005 240 / 0.72));
+  --glass-regular-blur: blur(20px) saturate(180%);
+
+  /* Clear — overlays, tooltips (max translucency) */
+  --glass-clear-bg:   light-dark(oklch(0.97 0.003 240 / 0.55), oklch(0.22 0.003 240 / 0.50));
+  --glass-clear-blur: blur(30px) saturate(200%);
+
+  /* Prominent — accent-tinted, primary actions */
+  --glass-prominent-bg: light-dark(
+    color-mix(in oklch, var(--accent) 15%, oklch(0.94 0.005 240 / 0.88)),
+    color-mix(in oklch, var(--accent) 18%, oklch(0.18 0.005 240 / 0.85))
+  );
+  --glass-prominent-blur: blur(16px) saturate(160%);
+
+  /* Backward-compat aliases (App.css references these) */
+  --glass-bg:       var(--glass-regular-bg);
+  --glass-bg-thick: light-dark(oklch(0.93 0.005 240 / 0.92), oklch(0.20 0.005 240 / 0.85));
+  --glass-blur:     var(--glass-regular-blur);
+
+  /* ── Surface separator ── */
+  --separator: color-mix(in oklch, var(--vscode-editorWidget-border, light-dark(oklch(0.87 0.01 240), oklch(0.30 0 0))) 45%, transparent);
+
+  /* ── Standard materials — content layer ── */
+  --material-thin:    light-dark(oklch(0.96 0.003 240 / 0.65), oklch(0.22 0.003 240 / 0.55));
+  --material-regular: var(--vscode-editor-background, #ffffff);
+  --material-thick:   light-dark(oklch(0.94 0.003 240 / 0.95), oklch(0.18 0.003 240 / 0.92));
+
+  /* ── Accent tints (glass tinting) ── */
+  --glass-tint-subtle: light-dark(
+    color-mix(in oklch, var(--accent) 10%, oklch(0 0 0 / 0.04)),
+    color-mix(in oklch, var(--accent) 12%, oklch(1 0 0 / 0.06))
+  );
+  --glass-tint-medium: light-dark(
+    color-mix(in oklch, var(--accent) 20%, oklch(0 0 0 / 0.06)),
+    color-mix(in oklch, var(--accent) 22%, oklch(1 0 0 / 0.08))
+  );
+  --glass-tint-strong: light-dark(
+    color-mix(in oklch, var(--accent) 35%, oklch(0 0 0 / 0.08)),
+    color-mix(in oklch, var(--accent) 35%, oklch(1 0 0 / 0.10))
+  );
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     1C. Vibrancy Hierarchy
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  --vibrancy-primary:    1.0;
+  --vibrancy-secondary:  0.75;
+  --vibrancy-tertiary:   0.55;
+  --vibrancy-quaternary: 0.35;
+
+  --vibrancy-fill-primary:   light-dark(oklch(0 0 0 / 0.08), oklch(1 0 0 / 0.12));
+  --vibrancy-fill-secondary: light-dark(oklch(0 0 0 / 0.05), oklch(1 0 0 / 0.08));
+  --vibrancy-fill-tertiary:  light-dark(oklch(0 0 0 / 0.03), oklch(1 0 0 / 0.05));
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     1D. Motion Scale (Spring Physics)
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* Spring curves (CSS cubic-bezier approximations of Apple's springs) */
+  --spring-default: cubic-bezier(0.2, 0.9, 0.3, 1.0);
+  --spring-gentle:  cubic-bezier(0.4, 0.8, 0.4, 1.0);
+  --spring-bouncy:  cubic-bezier(0.34, 1.56, 0.64, 1);
+  --spring-snappy:  cubic-bezier(0.12, 0.8, 0.2, 1.0);
+  --spring-stiff:   cubic-bezier(0.3, 0.7, 0.2, 1.0);
+
+  /* Duration tiers */
+  --duration-micro:  80ms;
+  --duration-short:  150ms;
+  --duration-medium: 250ms;
+  --duration-long:   400ms;
+  --duration-xlong:  600ms;
+
+  /* Entrance/exit asymmetry */
+  --ease-enter: var(--spring-default);
+  --ease-exit:  cubic-bezier(0.4, 0, 0.7, 0.2);
+  --ease-move:  var(--spring-gentle);
+
+  /* Backward-compat aliases (App.css references these) */
+  --ease-spring:        var(--spring-default);
+  --ease-spring-bounce: var(--spring-bouncy);
+  --ease-decel:         cubic-bezier(0, 0, 0.58, 1);
+  --ease-accel:         cubic-bezier(0.42, 0, 1, 1);
+  --duration-instant:   var(--duration-micro);
+  --duration-fast:      var(--duration-short);
+  --duration-normal:    var(--duration-medium);
+  --duration-slow:      var(--duration-long);
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     1E. Typography Scale (macOS HIG, 13pt body)
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  --font-family: var(--vscode-font-family, system-ui, -apple-system, sans-serif);
+  --font-mono: var(--vscode-editor-font-family, ui-monospace, monospace);
+
+  --type-large-title: 600 20px/24px var(--font-family);
+  --type-title-1:     600 17px/22px var(--font-family);
+  --type-title-2:     600 15px/20px var(--font-family);
+  --type-title-3:     600 13px/18px var(--font-family);
+  --type-headline:    600 13px/18px var(--font-family);
+  --type-body:        400 13px/18px var(--font-family);
+  --type-callout:     400 12px/16px var(--font-family);
+  --type-subhead:     400 11px/14px var(--font-family);
+  --type-footnote:    400 10px/13px var(--font-family);
+  --type-caption-1:   500 10px/13px var(--font-family);
+  --type-caption-2:   400  9px/11px var(--font-family);
+
+  --tracking-title:   -0.4px;
+  --tracking-body:    0;
+  --tracking-caption: 0.04em;
+  --tracking-label:   0.06em;
+
+  /* Backward-compat aliases (App.css references these) */
+  --tracking-tight:  -0.2px;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     1F. Spacing Scale (4px base grid)
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* v1 spacing (preserved — App.css references these extensively) */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-6: 12px;
+  --space-8: 16px;
+  --space-10: 20px;
+  --space-12: 24px;
+  --space-16: 32px;
+
+  /* v2 expanded spacing (new HIG 4px grid tokens) */
+  --space-px:   1px;
+  --space-0x5:  2px;
+  --space-1x0:  4px;
+  --space-1x5:  6px;
+  --space-2x0:  8px;
+  --space-3x0:  12px;
+  --space-4x0:  16px;
+  --space-5x0:  20px;
+  --space-6x0:  24px;
+  --space-8x0:  32px;
+  --space-10x0: 40px;
+  --space-12x0: 48px;
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     1G. Stage Chromatic Colors
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  --color-stage-plan:    light-dark(oklch(0.52 0.12 250), oklch(0.78 0.10 250));
+  --color-stage-execute: light-dark(oklch(0.52 0.12 145), oklch(0.78 0.10 145));
+  --color-stage-review:  light-dark(oklch(0.52 0.12 310), oklch(0.78 0.10 310));
+  --color-stage-ship:    light-dark(oklch(0.52 0.12 55),  oklch(0.78 0.10 55));
+  --color-stage-observe: light-dark(oklch(0.52 0.12 195), oklch(0.78 0.10 195));
+  --color-stage-system:  light-dark(oklch(0.52 0.03 260), oklch(0.78 0.03 260));
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     1H. Icon Scale
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  --icon-xs: 12px;
+  --icon-sm: 14px;
+  --icon-md: 18px;
+  --icon-lg: 22px;
+  --icon-xl: 28px;
+
+  /* ── Domain colors (equal lightness per scheme for perceptual uniformity) ── */
+  --color-domain-app:         light-dark(oklch(0.52 0.03 260), oklch(0.78 0.03 260));
+  --color-domain-identity:    light-dark(oklch(0.52 0.13 250), oklch(0.78 0.11 250));
+  --color-domain-content:     light-dark(oklch(0.52 0.13 155), oklch(0.78 0.11 155));
+  --color-domain-view:        light-dark(oklch(0.52 0.13 55),  oklch(0.78 0.11 55));
+  --color-domain-app-bg:      light-dark(oklch(0.52 0.03 260 / 0.10), oklch(0.78 0.03 260 / 0.12));
+  --color-domain-identity-bg: light-dark(oklch(0.52 0.13 250 / 0.10), oklch(0.78 0.11 250 / 0.12));
+  --color-domain-content-bg:  light-dark(oklch(0.52 0.13 155 / 0.10), oklch(0.78 0.11 155 / 0.12));
+  --color-domain-view-bg:     light-dark(oklch(0.52 0.13 55 / 0.10),  oklch(0.78 0.11 55 / 0.12));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Enhanced Reduced Motion
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-micro: 0ms;
+    --duration-short: 0ms;
+    --duration-medium: 0ms;
+    --duration-long: 0ms;
+    --duration-xlong: 0ms;
+    --duration-instant: 0ms;
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+    --spring-default: ease;
+    --spring-gentle: ease;
+    --spring-bouncy: ease;
+    --spring-snappy: ease;
+    --spring-stiff: ease;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Enhanced High Contrast
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-contrast: more) {
+  :root {
+    --edge-faint:  light-dark(oklch(0 0 0 / 0.14), oklch(1 0 0 / 0.12));
+    --edge-subtle: light-dark(oklch(0 0 0 / 0.22), oklch(1 0 0 / 0.18));
+    --edge-medium: light-dark(oklch(0 0 0 / 0.30), oklch(1 0 0 / 0.24));
+    --glass-regular-bg: light-dark(oklch(0.90 0.008 240 / 0.92), oklch(0.22 0.008 240 / 0.88));
+    --glass-clear-bg: light-dark(oklch(0.95 0.005 240 / 0.75), oklch(0.24 0.005 240 / 0.70));
+    --glass-prominent-bg: light-dark(
+      color-mix(in oklch, var(--accent) 20%, oklch(0.90 0.008 240 / 0.95)),
+      color-mix(in oklch, var(--accent) 22%, oklch(0.20 0.008 240 / 0.92))
+    );
+    --vibrancy-secondary: 0.85;
+    --vibrancy-tertiary: 0.70;
+    --vibrancy-quaternary: 0.55;
+  }
+}
+
+/* VS Code high contrast dark theme — opaque surfaces, strong edges */
+:root:has(body.vscode-high-contrast) {
+  --edge-faint:  oklch(1 0 0 / 0.18);
+  --edge-subtle: oklch(1 0 0 / 0.28);
+  --edge-medium: oklch(1 0 0 / 0.38);
+  --glass-regular-bg: oklch(0.15 0.005 240 / 0.95);
+  --glass-clear-bg: oklch(0.18 0.003 240 / 0.85);
+  --glass-prominent-bg: color-mix(in oklch, var(--accent) 25%, oklch(0.15 0.005 240 / 0.95));
+  --glass-bg-thick: oklch(0.15 0.005 240 / 0.98);
+  --highlight: oklch(1 0 0 / 0.20);
+  --highlight-hover: oklch(1 0 0 / 0.28);
+  --vibrancy-secondary: 0.90;
+  --vibrancy-tertiary: 0.75;
+}
+
+/* VS Code high contrast light theme — strong edges, high contrast fills */
+:root:has(body.vscode-high-contrast-light) {
+  --edge-faint:  oklch(0 0 0 / 0.20);
+  --edge-subtle: oklch(0 0 0 / 0.30);
+  --edge-medium: oklch(0 0 0 / 0.40);
+  --glass-regular-bg: oklch(0.96 0.005 240 / 0.95);
+  --glass-clear-bg: oklch(0.98 0.003 240 / 0.85);
+  --glass-prominent-bg: color-mix(in oklch, var(--accent) 20%, oklch(0.96 0.005 240 / 0.98));
+  --glass-bg-thick: oklch(0.96 0.005 240 / 0.98);
+  --highlight: oklch(1 0 0 / 0.70);
+  --highlight-hover: oklch(1 0 0 / 0.80);
+  --vibrancy-secondary: 0.90;
+  --vibrancy-tertiary: 0.75;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Base Element Styles
+   ═══════════════════════════════════════════════════════════════════════ */
+
 * {
   box-sizing: border-box;
 }
 
 body {
-  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-family: var(--font-family);
   color: var(--vscode-foreground, #1f2328);
   background: var(--vscode-editor-background, #ffffff);
   margin: 0;
@@ -38,7 +446,7 @@ label {
 
 input {
   padding: 6px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--vscode-input-border, #d0d7de);
   background: var(--vscode-input-background, #ffffff);
   color: var(--vscode-input-foreground, #1f2328);
@@ -47,13 +455,25 @@ input {
 
 button {
   padding: 6px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   border: none;
   cursor: pointer;
-  background: var(--vscode-button-background, #2c74d3);
+  background: var(--accent);
   color: var(--vscode-button-foreground, #ffffff);
   font-size: 12px;
   font-weight: 600;
+  transition: background var(--duration-instant) ease-out,
+    box-shadow var(--duration-instant) ease-out,
+    transform var(--duration-instant) var(--ease-spring);
+}
+
+button:hover:not(:disabled) {
+  box-shadow: var(--shadow-sm);
+}
+
+button:active:not(:disabled) {
+  box-shadow: none;
+  transform: scale(0.97);
 }
 
 button.secondary {
@@ -62,7 +482,7 @@ button.secondary {
 }
 
 button.danger {
-  background: var(--vscode-inputValidation-errorBackground, #d73a49);
+  background: var(--color-error, var(--vscode-inputValidation-errorBackground, #d73a49));
   color: #ffffff;
 }
 
@@ -76,7 +496,7 @@ code {
   font-size: 11px;
   background: var(--vscode-textCodeBlock-background, #f0f0f0);
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 a {

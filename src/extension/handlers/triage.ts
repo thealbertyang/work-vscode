@@ -19,7 +19,7 @@ const getStatePath = (context: HandlerDependencies["context"]): string => {
     workspace.getWorkspaceFolder(Uri.file(context.extensionPath)) ??
     workspace.workspaceFolders?.[0];
   const wsRoot = workspaceFolder?.uri.fsPath ?? context.extensionPath;
-  return path.join(wsRoot, "_agents", STATE_FILENAME);
+  return path.join(wsRoot, ".claude", STATE_FILENAME);
 };
 
 const readState = (context: HandlerDependencies["context"]): AppPersistedState => {

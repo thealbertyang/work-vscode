@@ -15,7 +15,6 @@ export type RouteMeta = {
   tabLabel?: string;
   tabOrder?: number;
   tabHidden?: boolean;
-  redirect?: string;
 };
 
 export const ROUTE_META = {
@@ -74,14 +73,6 @@ export const ROUTE_META = {
     tabLabel: "Tasks",
     tabOrder: 10,
   },
-  executeAutomations: {
-    id: "executeAutomations",
-    segment: "execute/automations",
-    path: "/execute/automations",
-    stage: "execute",
-    tabHidden: true,
-    redirect: "/execute",
-  },
 
   // --- Review stage ---
   review: {
@@ -121,14 +112,6 @@ export const ROUTE_META = {
   },
 
   // --- System (gear) ---
-  systemSetup: {
-    id: "systemSetup",
-    segment: "system/setup",
-    path: "/system/setup",
-    stage: "system",
-    tabHidden: true,
-    redirect: "/system/settings",
-  },
   systemRegistry: {
     id: "systemRegistry",
     segment: "system/registry",
@@ -145,14 +128,6 @@ export const ROUTE_META = {
     tabOrder: 90,
     tabHidden: true,
   },
-  systemDev: {
-    id: "systemDev",
-    segment: "system/dev",
-    path: "/system/dev",
-    stage: "system",
-    tabHidden: true,
-    redirect: "/system/settings",
-  },
   systemDocs: {
     id: "systemDocs",
     segment: "system/docs",
@@ -163,13 +138,6 @@ export const ROUTE_META = {
     tabHidden: true,
   },
 
-  // --- Universal intent dispatcher (internal) ---
-  intent: {
-    id: "intent",
-    segment: "intent",
-    path: "/intent",
-    tabHidden: true,
-  },
   // --- Universal app dispatcher (internal) ---
   appDispatch: {
     id: "appDispatch",
@@ -178,79 +146,9 @@ export const ROUTE_META = {
     tabHidden: true,
   },
 
-  // --- Legacy redirects ---
-  overview: {
-    id: "overview",
-    segment: "overview",
-    path: "/overview",
-    tabHidden: true,
-    redirect: "/plan",
-  },
-  setup: {
-    id: "setup",
-    segment: "setup",
-    path: "/setup",
-    tabHidden: true,
-    redirect: "/system/setup",
-  },
-  settings: {
-    id: "settings",
-    segment: "settings",
-    path: "/settings",
-    tabHidden: true,
-    redirect: "/system/settings",
-  },
-  jira: {
-    id: "jira",
-    segment: "jira",
-    path: "/jira",
-    tabHidden: true,
-    redirect: "/review",
-  },
-  jiraIssue: {
-    id: "jiraIssue",
-    segment: "jira/issues",
-    path: "/jira/issues/:key",
-    tabHidden: true,
-  },
-  automations: {
-    id: "automations",
-    segment: "automations",
-    path: "/automations",
-    tabHidden: true,
-    redirect: "/execute/automations",
-  },
-  dev: {
-    id: "dev",
-    segment: "dev",
-    path: "/dev",
-    tabHidden: true,
-    redirect: "/system/dev",
-  },
-  docs: {
-    id: "docs",
-    segment: "docs",
-    path: "/docs",
-    tabHidden: true,
-    redirect: "/system/docs",
-  },
 } as const satisfies Record<string, RouteMeta>;
 
 export const DEFAULT_ROUTE_PATH = "/plan";
-
-/** Maps old paths to new paths for backward compatibility. */
-const LEGACY_REDIRECTS: Record<string, string> = {
-  "/overview": "/plan",
-  "/setup": "/system/settings",
-  "/settings": "/system/settings",
-  "/system/setup": "/system/settings",
-  "/jira": "/review",
-  "/automations": "/execute",
-  "/execute/automations": "/execute",
-  "/dev": "/system/settings",
-  "/system/dev": "/system/settings",
-  "/docs": "/system/docs",
-};
 
 // Keep local to avoid a circular dependency with `intent.ts` (which imports from this module).
 const APP_DISPATCH_KINDS = new Set([
@@ -270,13 +168,11 @@ const APP_DISPATCH_KINDS = new Set([
  *
  * - Enforces leading `/`
  * - Strips trailing slashes
- * - Applies legacy redirects (e.g., `/jira/ABC-123` → `/review/issues/ABC-123`)
- * - Expands shorthands (e.g., `/review/ABC-123` → `/review/issues/ABC-123`)
  *
  * Returns {@link DEFAULT_ROUTE_PATH} for empty/falsy input.
  *
  * **Important:** This operates on *route* paths only (e.g., `/plan`, `/review/issues/X`).
- * Do NOT pass dispatcher-wrapped paths like `/app/atlassian/route/plan` — use
+ * Do NOT pass dispatcher-wrapped paths like `/app/work/route/plan` — use
  * {@link buildAppDispatcherPath} and {@link isAppDispatcherPath} for those.
  */
 export const normalizeRoutePath = (value?: string | null): string => {
@@ -289,47 +185,14 @@ export const normalizeRoutePath = (value?: string | null): string => {
   }
   const cleaned = trimmed.replace(/\/+$/, "");
   const prefixed = cleaned.startsWith("/") ? cleaned : `/${cleaned}`;
-  const segments = prefixed.split("/").filter(Boolean);
-
-  // Handle legacy /jira/ISSUE-KEY shorthand → /review/issues/ISSUE-KEY
-  if (segments[0] === "jira") {
-    if (segments.length === 2 && segments[1] !== "issues") {
-      return `/review/issues/${segments[1]}`;
-    }
-    if (segments[1] === "issues" && segments[2]) {
-      return `/review/issues/${segments[2]}`;
-    }
-    return "/review";
-  }
-
-  // Handle legacy /review/ISSUE-KEY shorthand → /review/issues/ISSUE-KEY
-  if (segments[0] === "review") {
-    if (segments.length === 2 && segments[1] !== "issues") {
-      return `/review/issues/${segments[1]}`;
-    }
-  }
-
-  // Apply legacy redirects for exact matches
-  const redirect = LEGACY_REDIRECTS[prefixed];
-  if (redirect) {
-    return redirect;
-  }
-
   return prefixed || DEFAULT_ROUTE_PATH;
 };
 
 /** Extracts a Jira issue key from a route path (e.g., `/review/issues/ABC-123` → `"ABC-123"`). */
 export const extractIssueKey = (path: string): string | undefined => {
   const segments = path.split("/").filter(Boolean);
-  // Support both /review/issues/KEY and legacy /jira/issues/KEY
-  if (segments[0] === "review" || segments[0] === "jira") {
-    if (segments[1] === "issues" && segments[2]) {
-      return segments[2];
-    }
-    // shorthand: /jira/KEY or /review/KEY
-    if (segments[0] === "jira" && segments[1] && segments[1] !== "issues") {
-      return segments[1];
-    }
+  if (segments[0] === "review" && segments[1] === "issues" && segments[2]) {
+    return segments[2];
   }
   return undefined;
 };
@@ -337,9 +200,8 @@ export const extractIssueKey = (path: string): string | undefined => {
 /**
  * Converts a {@link RouteHint} into a canonical route path.
  *
- * Resolves named routes (`{name: "jira"}` → `/review`), issue shortcuts
- * (`{name: "jira", issueKey: "ABC-123"}` → `/review/issues/ABC-123`),
- * and explicit paths (`{path: "/plan"}` → `/plan`).
+ * Resolves explicit paths (`{path: "/plan"}` → `/plan`) and named routes
+ * (`{name: "review", issueKey: "ABC-123"}` → `/review/issues/ABC-123`).
  *
  * Used by the extension host to resolve deep link navigation targets and by
  * the webview to restore persisted routes.
@@ -351,30 +213,8 @@ export const routeHintToPath = (hint?: RouteHint): string => {
   if (hint.path) {
     return normalizeRoutePath(hint.path);
   }
-  // Legacy name mappings
-  if (hint.name === "overview") {
-    return "/plan";
-  }
-  if (hint.name === "plan") {
-    return "/plan";
-  }
-  if (hint.name === "jira" || hint.name === "review") {
+  if (hint.name === "review") {
     return hint.issueKey ? `/review/issues/${hint.issueKey}` : "/review";
-  }
-  if (hint.name === "setup" || hint.name === "settings") {
-    return "/system/settings";
-  }
-  if (hint.name === "automations") {
-    return "/execute";
-  }
-  if (hint.name === "execute") {
-    return "/execute";
-  }
-  if (hint.name === "dev") {
-    return "/system/settings";
-  }
-  if (hint.name === "docs") {
-    return "/system/docs";
   }
   if (hint.name) {
     return normalizeRoutePath(hint.name);
@@ -387,9 +227,7 @@ export const stageFromPath = (pathname: string): string => {
   const segments = pathname.split("/").filter(Boolean);
   const head = segments[0] || "plan";
   if (head === "system") return "system";
-  if (head === "intent" || head === "app") return "system";
-  // legacy (should normalize to /system/docs)
-  if (head === "docs") return "system";
+  if (head === "app") return "system";
   if (head === "plan") return "plan";
   if (head === "execute") return "execute";
   if (head === "review") return "review";
@@ -440,23 +278,23 @@ export const buildDeepLinkBase = (uriScheme?: string, extensionId?: string): str
   if (uriScheme && extensionId) {
     return `${uriScheme}://${extensionId}`;
   }
-  return "vscode://albertyang.atlassian-sprint-view";
+  return "vscode://albertyang.work";
 };
 
 /**
  * Constructs a full deep link URL by joining a base, path, and optional query.
  *
  * The `path` should already be well-formed — either a dispatcher path from
- * {@link buildAppDispatcherPath} (e.g., `/app/atlassian/route/plan`) or a
+ * {@link buildAppDispatcherPath} (e.g., `/app/work/route/plan`) or a
  * plain route path (e.g., `/plan`). No route normalization is applied here;
  * callers are responsible for providing the correct path format.
  *
  * @example
- * buildDeepLinkUrl("vscode://pub.ext", "/app/atlassian/route/plan")
- * // → "vscode://pub.ext/app/atlassian/route/plan"
+ * buildDeepLinkUrl("vscode://pub.ext", "/app/work/route/plan")
+ * // → "vscode://pub.ext/app/work/route/plan"
  *
- * buildDeepLinkUrl("http://localhost:5173/#", "/app/atlassian/route/plan", { view: "compact" })
- * // → "http://localhost:5173/#/app/atlassian/route/plan?view=compact"
+ * buildDeepLinkUrl("http://localhost:5173/#", "/app/work/route/plan", { view: "compact" })
+ * // → "http://localhost:5173/#/app/work/route/plan?view=compact"
  */
 export const buildDeepLinkUrl = (
   base: string,
@@ -476,11 +314,11 @@ export const buildDeepLinkUrl = (
  * `route`, `action`, `command`, etc.).
  *
  * @example
- * buildAppDispatcherPath("atlassian", "/plan")
- * // → "/app/atlassian/route/plan"
+ * buildAppDispatcherPath("work", "/plan")
+ * // → "/app/work/route/plan"
  *
- * buildAppDispatcherPath("atlassian", "/review/issues/ABC-123")
- * // → "/app/atlassian/route/review/issues/ABC-123"
+ * buildAppDispatcherPath("work", "/review/issues/ABC-123")
+ * // → "/app/work/route/review/issues/ABC-123"
  */
 export const buildAppDispatcherPath = (appId: string, routePath: string): string => {
   const normalized = normalizeRoutePath(routePath);
@@ -508,10 +346,8 @@ export type DeepLinkInput = {
  * Resolves a deep link path + query into a {@link RouteHint}.
  *
  * Handles these wrapper formats:
- * - `/open/plan`, `/openApp/plan` → `/plan` (legacy VS Code deep link wrappers)
- * - `/app/atlassian/route/plan` → `/plan` (universal dispatcher wrapper)
+ * - `/app/work/route/plan` → `/plan` (universal dispatcher wrapper)
  * - `/plan?issue=ABC-123` → `/review/issues/ABC-123` (query-based shortcuts)
- * - `/jira/ABC-123` → `/review/issues/ABC-123` (via {@link normalizeRoutePath})
  *
  * @param input - Raw deep link path and optional query string (without scheme/host).
  * @returns A {@link RouteHint} with the resolved path, or `undefined` if unresolvable.
@@ -544,14 +380,7 @@ export const resolveRouteFromDeepLink = (input: DeepLinkInput): RouteHint | unde
     resolvedPath = fromQuery();
   } else {
     const [head] = segments;
-    if (head === "open" || head === "openApp") {
-      const tail = segments.slice(1);
-      if (tail.length === 0) {
-        resolvedPath = fromQuery();
-      } else {
-        resolvedPath = normalizeRoutePath(`/${tail.join("/")}`);
-      }
-    } else if (head === "app") {
+    if (head === "app") {
       const tail = segments.slice(1);
       // Universal dispatcher shape: /app/<appId>/<kind>/...
       // For "route" kind: extract the inner route path and auto-navigate.
@@ -569,9 +398,6 @@ export const resolveRouteFromDeepLink = (input: DeepLinkInput): RouteHint | unde
         }
       } else if (tail.length === 0) {
         resolvedPath = fromQuery();
-      } else {
-        // Legacy wrapper shape: /app/<route...> (treat like /open)
-        resolvedPath = normalizeRoutePath(`/${tail.join("/")}`);
       }
     } else {
       resolvedPath = normalizeRoutePath(`/${segments.join("/")}`);

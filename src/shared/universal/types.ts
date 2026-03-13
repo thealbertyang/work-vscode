@@ -33,7 +33,7 @@ export type UniversalAppConfig = {
   version?: string;
   defaultRoute?: string;
   /**
-   * Canonical, transport-agnostic intent URL scheme (e.g. "atlassian", "agent", "control").
+   * Canonical, transport-agnostic intent URL scheme (e.g. "work", "agent", "control").
    * This is NOT the VS Code deep-link scheme (`vscode://`, `vscode-insiders://`).
    */
   intentScheme?: string;
@@ -53,6 +53,7 @@ export type UniversalCommand = {
   description?: string;
   target?: string;
   payloadSchema?: string;
+  domain?: string;
 };
 
 export type UniversalEvent = {
@@ -60,6 +61,7 @@ export type UniversalEvent = {
   kind: UniversalEventKind;
   description?: string;
   payloadSchema?: string;
+  domain?: string;
 };
 
 export type UniversalAction = {
@@ -71,6 +73,7 @@ export type UniversalAction = {
   route?: string;
   ruleset?: string;
   tags?: string[];
+  domain?: string;
 };
 
 export type UniversalRoute = {
@@ -81,6 +84,7 @@ export type UniversalRoute = {
   tabLabel?: string;
   tabOrder?: number;
   tabHidden?: boolean;
+  domain?: string;
 };
 
 export type UniversalView = {
@@ -121,6 +125,7 @@ export type UniversalStorageTarget = {
   scope?: UniversalScope;
   location?: string;
   description?: string;
+  domain?: string;
 };
 
 export type UniversalStorageConfig = {
@@ -182,6 +187,39 @@ export type UrlStateConfig = {
   [key: string]: UrlStateParam;
 };
 
+// ── Topology types ─────────────────────────────────────────
+
+export type TopologyDomain = {
+  id: string;
+  label: string;
+  concern?: string;
+  color?: string;
+};
+
+export type TopologyPrefixRule = {
+  prefix: string;
+  domain: string;
+};
+
+export type TopologyLayer = {
+  id: string;
+  label: string;
+  concern?: string;
+  modules: string[];
+};
+
+export type TopologyConfig = {
+  defaultDomain: string;
+  domains: Record<string, TopologyDomain>;
+  overrides?: Record<string, string>;
+  prefixRules?: TopologyPrefixRule[];
+  stageMap?: Record<string, string>;
+  storageDomains?: Record<string, string[]>;
+  layers?: Record<string, TopologyLayer>;
+};
+
+// ── Universal config ───────────────────────────────────────
+
 export type UniversalConfig = {
   app: UniversalAppConfig;
   namespaces: Record<string, UniversalNamespace>;
@@ -200,5 +238,6 @@ export type UniversalConfig = {
   platforms?: Record<string, UniversalPlatform>;
   environments?: Record<string, UniversalEnvironment>;
   urlState?: UrlStateConfig;
+  topology?: TopologyConfig;
   metadata?: Record<string, string>;
 };

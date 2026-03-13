@@ -7,14 +7,20 @@ type StageRailProps = {
 };
 
 const STAGE_ICONS: Record<string, string> = {
-  calendar: "\u{1F4C5}",
-  play: "\u25B6",
-  eye: "\u{1F441}",
-  rocket: "\u{1F680}",
-  pulse: "\u{1F4C8}",
-  book: "\u{1F4D6}",
-  gear: "\u2699",
+  calendar: "codicon-calendar",
+  play: "codicon-play",
+  eye: "codicon-eye",
+  rocket: "codicon-rocket",
+  pulse: "codicon-graph-line",
+  book: "codicon-book",
+  gear: "codicon-gear",
 };
+
+function StageIcon({ icon, fallback }: { icon?: string; fallback: string }) {
+  const cls = icon ? STAGE_ICONS[icon] : undefined;
+  if (cls) return <span className={`stage-rail-icon codicon ${cls}`} aria-hidden="true" />;
+  return <span className="stage-rail-icon">{fallback}</span>;
+}
 
 export function StageRail({ stages, activeStage, onNavigate }: StageRailProps) {
   const mainStages = stages.filter((s) => s.id !== "system").sort((a, b) => a.order - b.order);
@@ -32,8 +38,8 @@ export function StageRail({ stages, activeStage, onNavigate }: StageRailProps) {
             title={stage.label}
             aria-current={activeStage === stage.id ? "page" : undefined}
           >
-            <span className="stage-rail-icon">{STAGE_ICONS[stage.icon ?? ""] ?? stage.label[0]}</span>
-            <span className="stage-rail-label">{stage.label}</span>
+            <StageIcon icon={stage.icon} fallback={stage.label[0]} />
+            <span className="stage-rail-label" data-label={stage.label}>{stage.label}</span>
           </button>
         ))}
       </div>
@@ -47,8 +53,8 @@ export function StageRail({ stages, activeStage, onNavigate }: StageRailProps) {
             title={systemStage.label}
             aria-current={activeStage === "system" ? "page" : undefined}
           >
-            <span className="stage-rail-icon">{STAGE_ICONS.gear}</span>
-            <span className="stage-rail-label">{systemStage.label}</span>
+            <StageIcon icon="gear" fallback="S" />
+            <span className="stage-rail-label" data-label={systemStage.label}>{systemStage.label}</span>
           </button>
         </div>
       ) : null}

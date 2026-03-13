@@ -4,17 +4,17 @@ import type { ParsedLink } from "./parse-any-link";
 export type LinkFormat = "canonical" | "dispatcher" | "deepLink" | "webHash";
 
 export interface FormatOptions {
-  /** App identifier for intent URLs. Default: `"atlassian"`. */
+  /** App identifier for intent URLs. Default: `"work"`. */
   appId?: string;
   /** URI scheme for canonical intent URLs. Default: `"app"`. */
   scheme?: string;
-  /** Extension identifier for VS Code deep links. Default: `"albertyang.atlassian-sprint-view"`. */
+  /** Extension identifier for VS Code deep links. Default: `"albertyang.work"`. */
   extensionId?: string;
 }
 
-const DEFAULT_APP_ID = "atlassian";
+const DEFAULT_APP_ID = "work";
 const DEFAULT_SCHEME = "app";
-const DEFAULT_EXTENSION_ID = "albertyang.atlassian-sprint-view";
+const DEFAULT_EXTENSION_ID = "albertyang.work";
 
 const buildSearchString = (search: Record<string, string>): string => {
   const entries = Object.entries(search);
@@ -25,9 +25,9 @@ const buildSearchString = (search: Record<string, string>): string => {
 /**
  * Formats a `ParsedLink` into one of the supported output formats.
  *
- * - `canonical`:   `app://atlassian/route/plan?view=compact`
- * - `dispatcher`:  `/app/atlassian/route/plan?view=compact`
- * - `deepLink`:    `vscode://albertyang.atlassian-sprint-view/app/atlassian/route/plan?view=compact`
+ * - `canonical`:   `app://work/route/plan?view=compact`
+ * - `dispatcher`:  `/app/work/route/plan?view=compact`
+ * - `deepLink`:    `vscode://albertyang.work/app/work/route/plan?view=compact`
  * - `webHash`:     `#/plan?view=compact`
  */
 export const formatLink = (
@@ -44,15 +44,15 @@ export const formatLink = (
 
   switch (format) {
     case "canonical":
-      // app://atlassian/route<path>?...
+      // app://work/route<path>?...
       return `${scheme}://${appId}/route${path}${qs}`;
 
     case "dispatcher":
-      // /app/atlassian/route<path>?...
+      // /app/work/route<path>?...
       return `/app/${appId}/route${path}${qs}`;
 
     case "deepLink":
-      // vscode://extensionId/app/atlassian/route<path>?...
+      // vscode://extensionId/app/work/route<path>?...
       return `${extensionId.includes("://") ? extensionId : `vscode://${extensionId}`}/app/${appId}/route${path}${qs}`;
 
     case "webHash":

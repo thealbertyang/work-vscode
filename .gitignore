@@ -19,9 +19,12 @@ src/webview/Users/
 src/webview/Users/**
 
 # Workspace runtime state (machine-written)
-_agents/state.json
-_agents/app-global-state.json
-_agents/app-global-state.json.tmp
+.claude/state.json
+.claude/app-global-state.json
+.claude/app-global-state.json.tmp
+
+# Build artifacts
+workspace.vsix
 
 # macOS
 .DS_Store

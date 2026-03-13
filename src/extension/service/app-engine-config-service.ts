@@ -31,9 +31,9 @@ const APP_ENGINE_CONFIG_REL_PATH = path.join("config", "app.config.toml");
 export const DEFAULT_APP_ENGINE_CONFIG: AppEngineConfig = {
   version: 1,
   outputs: {
-    userConfigPath: "_agents/app.config.toml",
-    globalStatePath: "_agents/app-global-state.json",
-    persistedStatePath: "_agents/state.json",
+    userConfigPath: ".claude/app.config.toml",
+    globalStatePath: ".claude/app-global-state.json",
+    persistedStatePath: ".claude/state.json",
   },
   sources: {
     universalConfigPath: "config/universal.toml",

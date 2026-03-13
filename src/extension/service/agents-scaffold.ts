@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
 import { Uri, workspace, type ExtensionContext } from "vscode";
-import { log } from "../providers/data/atlassian/logger";
+import { log } from "../providers/data/jira/logger";
 
-const AGENTS_DIR = "_agents";
+const AGENTS_DIR = ".claude";
 
 const SCAFFOLD_SUBDIRS = ["docs", "runbooks", "plans", "automations", "skills"];
 
-/** Subdirectories to copy from the extension's bundled _agents/ to the workspace _agents/. */
+/** Subdirectories to copy from the extension's bundled .claude/ to the workspace .claude/. */
 const COPY_SUBDIRS = ["docs", "runbooks", "plans", "skills"];
 
 const isDirectory = (p: string): boolean => {
@@ -53,8 +53,8 @@ const copyMissingFiles = (srcDir: string, destDir: string, ext: string): number 
 };
 
 /**
- * Scaffolds the _agents directory in the workspace root.
- * Creates subdirectories if _agents exists, and copies missing
+ * Scaffolds the .claude directory in the workspace root.
+ * Creates subdirectories if .claude exists, and copies missing
  * docs from the extension's bundled docs/ directory.
  */
 export function scaffoldAgentsDir(context: ExtensionContext): void {
@@ -82,7 +82,7 @@ export function scaffoldAgentsDir(context: ExtensionContext): void {
     }
   }
 
-  // Copy missing files from the extension's bundled _agents/ to the workspace _agents/
+  // Copy missing files from the extension's bundled .claude/ to the workspace .claude/
   const extensionAgents = path.join(context.extensionPath, AGENTS_DIR);
   if (!isDirectory(extensionAgents)) {
     return;

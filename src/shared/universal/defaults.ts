@@ -9,7 +9,9 @@ import {
 } from "../contracts";
 import { RPC_METHODS, VSCODE_COMMANDS, type ActionDefinition } from "../contracts/commands";
 import type { RouteMeta } from "../contracts/routes";
+import { APP_ID, APP_NAME, APP_NAMESPACE } from "../app-identity";
 import type {
+  TopologyConfig,
   UniversalAction,
   UniversalCommand,
   UniversalConfig,
@@ -76,7 +78,7 @@ const buildDefaultRoutes = (): Record<string, UniversalRoute> => {
       path: meta.path,
       view: id,
       // Deep links are represented as a path template; the scheme/base is runtime-specific.
-      deepLink: `/app/atlassian/route${meta.path}`,
+      deepLink: `/app/${APP_ID}/route${meta.path}`,
       tabLabel: meta.tabLabel,
       tabOrder: meta.tabOrder,
       tabHidden: meta.tabHidden,
@@ -225,21 +227,111 @@ const buildDefaultStages = (): Record<string, UniversalStage> => ({
   },
 });
 
+export const buildDefaultTopology = (): TopologyConfig => ({
+  defaultDomain: "app",
+
+  domains: {
+    app: { id: "app", label: "App", concern: "Runtime primitives, lifecycle, transport, routing, messaging", color: "var(--color-domain-app)" },
+    identity: { id: "identity", label: "Identity", concern: "Authentication, credentials, accounts", color: "var(--color-domain-identity)" },
+    content: { id: "content", label: "Content", concern: "Business logic, issues, triage, automations, external data", color: "var(--color-domain-content)" },
+    view: { id: "view", label: "View", concern: "Presentation, theme, layout, stage views", color: "var(--color-domain-view)" },
+  },
+
+  overrides: {
+    // VS Code commands
+    "work.openApp": "app",
+    "work.refresh": "app",
+    "work.runDevWebview": "app",
+    "work.restartExtensionHost": "app",
+    "work.reloadWebviews": "app",
+    "work.syncEnvToSettings": "app",
+    "work.reinstallExtension": "app",
+    "work.login": "identity",
+    "work.logout": "identity",
+    "work.openIssue": "content",
+    "work.startTaskTerminal": "app",
+    // RPC methods
+    showInformation: "app", execCommand: "app", getState: "app",
+    registerChannel: "app", unregisterChannel: "app", sendMessage: "app",
+    addMessageListener: "app", rmMessageListener: "app",
+    axiosGet: "app", axiosPost: "app", axiosPut: "app", axiosDelete: "app",
+    openSettings: "app", syncEnvToSettings: "app", startTaskTerminal: "app",
+    getUniversalConfig: "app", getFullConfig: "app",
+    getDocsIndex: "app", getDocContent: "app", revealDocAsset: "app", openDocInEditor: "app",
+    restartExtensionHost: "app", reloadWebviews: "app", reinstallExtension: "app",
+    saveApiToken: "identity", disconnect: "identity",
+    getIssue: "content", listIssues: "content", openIssueInBrowser: "content",
+    getTriageState: "content", runTriage: "content",
+    getAutomations: "content", getAutomationRuns: "content",
+    onDidOpenTextDocument: "app", buildExtension: "app", buildWebview: "app",
+    runDevWebview: "app",
+    getTheme: "view", setTheme: "view", onThemeChange: "view",
+    // IPC commands / events
+    "work.route.navigate": "view", "work.webview.refresh": "app",
+    "work.state.updated": "app", "work.webview.ready": "app",
+    "work.route.changed": "view", "work.ui.action": "app", "work.ui.event": "app",
+  },
+
+  prefixRules: [
+    { prefix: "identity.", domain: "identity" },
+    { prefix: "content.", domain: "content" },
+    { prefix: "view.", domain: "view" },
+    { prefix: "app.", domain: "app" },
+    { prefix: "work.identity.", domain: "identity" },
+    { prefix: "work.content.", domain: "content" },
+    { prefix: "work.view.", domain: "view" },
+    { prefix: "work.app.", domain: "app" },
+  ],
+
+  stageMap: {
+    plan: "view",
+    execute: "view",
+    review: "view",
+    ship: "view",
+    observe: "view",
+    system: "app",
+  },
+
+  storageDomains: {
+    settings: ["app", "identity", "content"],
+    secrets: ["identity"],
+    globalState: ["app"],
+    workspaceState: ["app"],
+    globalFiles: ["app"],
+    workspaceFiles: ["content"],
+    webviewState: ["view"],
+    webviewLocal: ["view"],
+    webviewIndexedDb: ["view"],
+    extensionSqlite: ["app", "content"],
+    externalDatabase: ["content"],
+  },
+
+  layers: {
+    kernel: { id: "kernel", label: "Kernel", concern: "Runtime primitives", modules: ["app", "config", "messages"] },
+    identity: { id: "identity", label: "Identity", concern: "Authentication, credentials, accounts", modules: ["auth"] },
+    data: { id: "data", label: "Data", concern: "External I/O — HTTP client, state queries", modules: ["http"] },
+    domain: { id: "domain", label: "Domain", concern: "Business logic — issues, triage, automations", modules: ["issues", "triage", "automations"] },
+    ui: { id: "ui", label: "UI", concern: "Presentation — theme, layout, URL state", modules: ["theme"] },
+    work: { id: "work", label: "Work", concern: "Stage feature views — plan, execute, review, ship, observe", modules: ["plan", "execute", "review", "ship", "observe"] },
+    system: { id: "system", label: "System", concern: "Meta — settings, docs, registry, dev tools, configuration", modules: ["system", "settings", "docs", "dev", "universal"] },
+  },
+});
+
 export const DEFAULT_UNIVERSAL_CONFIG: UniversalConfig = {
   app: {
-    id: "atlassian",
-    name: "Atlassian Sprint",
-    namespace: "atlassian",
+    id: APP_ID,
+    name: APP_NAME,
+    namespace: APP_NAMESPACE,
     defaultRoute: DEFAULT_ROUTE_PATH,
     intentScheme: "app",
   },
   namespaces: {
-    app: { id: "app", prefix: "atlassian", description: "Primary app namespace." },
-    actions: { id: "actions", prefix: "atlassian", description: "Action identifiers." },
-    commands: { id: "commands", prefix: "atlassian", description: "Command identifiers." },
-    events: { id: "events", prefix: "atlassian", description: "Event identifiers." },
-    routes: { id: "routes", prefix: "atlassian", description: "Route identifiers." },
-    settings: { id: "settings", prefix: "atlassian", description: "Settings namespace." },
+    app: { id: "app", prefix: APP_NAMESPACE, description: "Primary app namespace." },
+    actions: { id: "actions", prefix: APP_NAMESPACE, description: "Action identifiers." },
+    commands: { id: "commands", prefix: APP_NAMESPACE, description: "Command identifiers." },
+    events: { id: "events", prefix: APP_NAMESPACE, description: "Event identifiers." },
+    routes: { id: "routes", prefix: APP_NAMESPACE, description: "Route identifiers." },
+    settings: { id: "settings", prefix: APP_NAMESPACE, description: "Settings namespace." },
   },
   styles: {
     theme: "default",
@@ -266,4 +358,5 @@ export const DEFAULT_UNIVERSAL_CONFIG: UniversalConfig = {
   storage: {
     targets: buildDefaultStorageTargets(),
   },
+  topology: buildDefaultTopology(),
 };

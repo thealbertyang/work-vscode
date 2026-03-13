@@ -98,7 +98,7 @@ function PlanPage() {
   };
 
   const automationSummary = useMemo(() => {
-    const all = automations ? [...automations.global, ...automations.workspace] : [];
+    const all = automations ? [...automations.global, ...automations.local] : [];
     const active = all.filter((a) => a.status === "ACTIVE");
     const nextRun = active
       .map((a) => a.nextRunAt)

@@ -1,6 +1,7 @@
 import { JsonrpcClient, MessageReceiver, MessageSender } from "@jsonrpc-rx/client";
 import { createContext } from "react";
 import { getRpcPayload, wrapRpcMessage } from "../ipc";
+import { buildViteEnvKeys } from "@shared/app-identity";
 
 type VsCodeApi = {
   postMessage: (message: unknown) => void;
@@ -11,9 +12,11 @@ type VsCodeApi = {
 const isBrowser = typeof window !== "undefined";
 export const isWebview = isBrowser && typeof (window as any).acquireVsCodeApi === "function";
 
-const DEFAULT_WS_BRIDGE_URL = "ws://localhost:5174";
+const DEFAULT_WS_BRIDGE_URL = "ws://localhost:5173/ws-bridge";
 const WS_BRIDGE_TOKEN_PARAM = "wsToken";
-const WS_BRIDGE_TOKEN_STORAGE_KEY = "atlassian.wsBridgeToken";
+const WS_BRIDGE_TOKEN_STORAGE_KEY = "work.wsBridgeToken";
+const WS_BRIDGE_TOKEN_VITE_KEYS = buildViteEnvKeys("WS_BRIDGE_TOKEN");
+const WS_BRIDGE_URL_VITE_KEYS = buildViteEnvKeys("WS_BRIDGE_URL");
 
 let bridgeReady = false;
 
@@ -23,11 +26,22 @@ const fallbackApi: VsCodeApi = {
   setState: (state: unknown) => state,
 };
 
+const firstViteEnvValue = (keys: readonly string[]): string | undefined => {
+  const env = (import.meta as any)?.env ?? {};
+  for (const key of keys) {
+    const value = env[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return undefined;
+};
+
 const readWsBridgeToken = (): string | undefined => {
   // 1) Prefer build-time env (useful for CI/dev scripts).
-  const envToken = (import.meta as any)?.env?.VITE_ATLASSIAN_WS_BRIDGE_TOKEN;
-  if (typeof envToken === "string" && envToken.trim()) {
-    return envToken.trim();
+  const envToken = firstViteEnvValue(WS_BRIDGE_TOKEN_VITE_KEYS);
+  if (envToken) {
+    return envToken;
   }
 
   // 2) Allow setting the token once via URL query: http://localhost:5173/?wsToken=...
@@ -56,9 +70,9 @@ const readWsBridgeToken = (): string | undefined => {
 };
 
 const readWsBridgeUrl = (): string => {
-  const fromEnv = (import.meta as any)?.env?.VITE_ATLASSIAN_WS_BRIDGE_URL;
-  if (typeof fromEnv === "string" && fromEnv.trim()) {
-    return fromEnv.trim();
+  const fromEnv = firstViteEnvValue(WS_BRIDGE_URL_VITE_KEYS);
+  if (fromEnv) {
+    return fromEnv;
   }
   return DEFAULT_WS_BRIDGE_URL;
 };
@@ -146,6 +160,14 @@ const createWsBridge = (): VsCodeApi | null => {
 let wsApi: VsCodeApi | null = null;
 
 export const getVsCodeApi = (): VsCodeApi => {
+  // Unified transport: always prefer WS bridge when a bridge URL is available.
+  // This works identically in VS Code webview and browser — single codepath.
+  if (!wsApi) {
+    wsApi = createWsBridge();
+  }
+  if (wsApi) return wsApi;
+
+  // Fallback to VS Code postMessage API (only if WS bridge creation failed)
   if (isWebview) {
     const existing = (window as any).__vscodeApi as VsCodeApi | undefined;
     if (existing) return existing;
@@ -153,10 +175,7 @@ export const getVsCodeApi = (): VsCodeApi => {
     (window as any).__vscodeApi = api;
     return api;
   }
-  if (!wsApi) {
-    wsApi = createWsBridge();
-  }
-  return wsApi ?? fallbackApi;
+  return fallbackApi;
 };
 
 export const isBridgeConnected = () => bridgeReady;

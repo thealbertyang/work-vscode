@@ -1,13 +1,14 @@
 /**
- * Reads CONTRACTS from the atlassian extension and emits surface.json.
+ * Reads CONTRACTS from the Work extension and emits surface.json.
  *
- * Usage: bun run repos/vscode/extensions/atlassian/scripts/generate-surface.ts
- * Output: repos/vscode/extensions/atlassian/surface.json
+ * Usage: bun run repos/work/vscode/scripts/generate-surface.ts
+ * Output: repos/work/vscode/surface.json
  */
 import { CONTRACTS } from "../src/shared/contracts/index";
-import type { SurfaceEntry } from "shared/surface";
+import { APP_NAMESPACE } from "../src/shared/app-identity";
+import type { SurfaceEntry } from "work-shared/surface";
 
-const PROJECT = "atlassian";
+const PROJECT = APP_NAMESPACE;
 const entries: SurfaceEntry[] = [];
 
 // -- VS Code Commands ---------------------------------------------------------
@@ -28,7 +29,7 @@ for (const [_key, id] of Object.entries(CONTRACTS.commands)) {
 // -- RPC Methods --------------------------------------------------------------
 for (const [_key, method] of Object.entries(CONTRACTS.rpc)) {
   entries.push({
-    id: `atlassian.rpc.${method as string}`,
+    id: `${APP_NAMESPACE}.rpc.${method as string}`,
     layer: "interface",
     domain: "app",
     kind: "rpc",
@@ -50,7 +51,7 @@ for (const [_key, action] of Object.entries(CONTRACTS.actions)) {
     project: PROJECT,
     source: "src/shared/contracts/commands.ts",
     spec: "contract",
-    resolves: a.rpc ? `atlassian.rpc.${a.rpc}` : a.vscode,
+    resolves: a.rpc ? `${APP_NAMESPACE}.rpc.${a.rpc}` : a.vscode,
     access: { scope: "global", visibility: "public", platforms: ["vscode"] },
   });
 }
@@ -87,7 +88,7 @@ for (const [_key, name] of Object.entries(CONTRACTS.ipc.commands)) {
 for (const [_key, route] of Object.entries(CONTRACTS.routes)) {
   const r = route as { id: string; path: string; stage?: string; tabLabel?: string };
   entries.push({
-    id: `atlassian.route.${r.id}`,
+    id: `${APP_NAMESPACE}.route.${r.id}`,
     layer: "interface",
     domain: "view",
     kind: "route",

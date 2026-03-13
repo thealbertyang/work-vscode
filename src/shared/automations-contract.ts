@@ -1,5 +1,5 @@
 export type AutomationStatus = "ACTIVE" | "INACTIVE";
-export type AutomationSource = "global" | "workspace";
+export type AutomationSource = "global" | "local";
 export type RunStatus = "ACCEPTED" | "ARCHIVED" | "PENDING";
 
 export type Automation = {
@@ -32,6 +32,6 @@ export type AutomationRun = {
 
 export type AutomationsIndex = {
   global: Automation[];
-  workspace: Automation[];
+  local: Automation[];
   error?: string;
 };

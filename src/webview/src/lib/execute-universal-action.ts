@@ -40,10 +40,10 @@ export const executeUniversalAction = async (
   // Certain domains are primarily “control surfaces” (settings/dev/auth) where an RPC or command
   // side-effect is usually more correct than simply navigating.
   const preferRpc =
-    actionId.startsWith("atlassian.settings.") ||
-    actionId.startsWith("atlassian.dev.") ||
-    actionId.startsWith("atlassian.auth.") ||
-    actionId.startsWith("atlassian.universal.");
+    actionId.startsWith("work.settings.") ||
+    actionId.startsWith("work.dev.") ||
+    actionId.startsWith("work.auth.") ||
+    actionId.startsWith("work.universal.");
 
   if (preferRpc && action.rpc) {
     const fn = (deps.handlers as any)[action.rpc] as unknown;

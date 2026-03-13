@@ -1,313 +1,420 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import * as vscode from "vscode";
-import { AtlassianClient } from "./providers/data/atlassian/atlassianClient";
-import { AtlassianIssuesProvider } from "./providers/data/atlassian/issueProvider";
-import { getHandlers } from "./handlers";
-import { log, outputChannel } from "./providers/data/atlassian/logger";
-import { WebviewServer } from "./service/webview-dev-server";
-import { WebviewWsBridge } from "./service/webview-ws-bridge";
-import { ExtensionBuildWatcher } from "./service/extension-build-watcher";
-import { ExtensionInstaller } from "./service/extension-installer";
-import { AtlassianUriHandler } from "./service/uri-handler";
-import type { WebviewRoute } from "./service/webview-route";
-import { WebviewRenderTracker } from "./service/webview-render-tracker";
-import { ViewProviderPanel } from "./providers/view/view-provider-panel";
+import { IDENTITIES } from "./policy/identities";
+import { PermissionPolicy } from "./policy/permission-policy";
+import { AgentDecorationProvider } from "./providers/data/jira/agentDecorationProvider";
+import { JiraClient, JiraIssue } from "./providers/data/jira/jiraClient";
 import {
-  DEFAULT_WEBVIEW_PORT,
-  DEFAULT_WS_BRIDGE_HOST,
-  DEFAULT_WS_BRIDGE_PORT,
-  REOPEN_APP_AFTER_RESTART_KEY,
-} from "./constants";
-import { resolveWebviewRoot } from "./webview/paths";
+  AgentSessionItem,
+  IssueItem,
+  StoryAgentSummaryItem,
+  WorkspaceIssuesProvider,
+} from "./providers/data/jira/issueProvider";
+import { LocalStoryReader } from "./providers/data/local/local-story-reader";
 import { StorageService } from "./service/storage-service";
-import { scaffoldAgentsDir } from "./service/agents-scaffold";
-import { getOrCreateWsBridgeToken } from "./service/ws-bridge-auth";
-import { getWebviewServerUrl } from "./providers/data/atlassian/atlassianConfig";
-import { AppGlobalStateService } from "./service/app-global-state-service";
-import {
-  VSCODE_COMMANDS,
-  IPC_COMMANDS,
-  formatLogPayload,
-  getActionByVscodeCommand,
-} from "../shared/contracts";
-import {
-  getServerPort,
-  isLocalhostUrl,
-  normalizeServerUrl,
-  waitForServer,
-} from "./webview/reachability";
+import { WorkspaceUriHandler } from "./service/uri-handler";
+import { WorkMcpEventListener } from "./service/work-mcp-events";
+import { VSCODE_COMMANDS } from "../shared/contracts";
+
+const LEGACY_START_TASK_TERMINAL_COMMANDS = [
+  "atlassian.startDevTaskTerminal",
+  "work.startDevTaskTerminal",
+] as const;
+
+type CommandHandler = (...args: unknown[]) => unknown;
+const ATTACH_SHELL = "/bin/sh";
+
+function workspaceRoot(): string | null {
+  const folder = vscode.workspace.workspaceFolders?.[0];
+  return folder?.uri.fsPath ?? null;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function sanitizeSegment(value: string): string {
+  return value
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Za-z0-9._:/-]/g, "_")
+    .replace(/-+/g, "-")
+    .replace(/^[-_.:/]+|[-_.:/]+$/g, "");
+}
+
+/** Must match repos/work/mcp/runtime/tmux-agent.ts slugify exactly. */
+function tmuxSlugify(value: string, max = 48): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, max);
+}
+
+function isIssue(value: unknown): value is JiraIssue {
+  if (!value || typeof value !== "object") return false;
+  const maybe = value as Partial<JiraIssue>;
+  return (
+    typeof maybe.key === "string"
+    && typeof maybe.summary === "string"
+    && typeof maybe.status === "string"
+    && typeof maybe.issueType === "string"
+  );
+}
+
+function extractIssue(value: unknown): JiraIssue | null {
+  if (value instanceof IssueItem) return value.issue;
+  if (value instanceof StoryAgentSummaryItem) return value.issue;
+  if (isIssue(value)) return value;
+
+  if (value && typeof value === "object" && "issue" in value) {
+    const maybeIssue = (value as { issue?: unknown }).issue;
+    if (isIssue(maybeIssue)) return maybeIssue;
+  }
+  return null;
+}
+
+function extractSessionName(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (value instanceof AgentSessionItem) return value.session.sessionName;
+  if (!value || typeof value !== "object") return null;
+
+  const direct = (value as { sessionName?: unknown }).sessionName;
+  if (typeof direct === "string") return direct;
+
+  const nested = (value as { session?: { sessionName?: unknown } }).session?.sessionName;
+  return typeof nested === "string" ? nested : null;
+}
+
+function normalizeStringField(value: unknown): string | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeAgentTerminalInput(
+  input: unknown,
+): {
+  tool: string;
+  role: string;
+  story: string;
+  session: string;
+  windowIndex?: string;
+} {
+  const params = (input && typeof input === "object") ? input as Record<string, unknown> : {};
+  return {
+    tool: (normalizeStringField(params.tool) ?? "claude").toUpperCase(),
+    role: normalizeStringField(params.role) ?? "worker",
+    story: normalizeStringField(params.story) ?? "work",
+    session: normalizeStringField(params.session) ?? "",
+    windowIndex: normalizeStringField(params.windowIndex ?? params.window),
+  };
+}
+
+function issueProgress(status: string): "todo" | "in-progress" | "blocked" | "done" {
+  const lower = status.toLowerCase();
+  if (lower.includes("done") || lower.includes("closed") || lower.includes("resolved")) {
+    return "done";
+  }
+  if (lower.includes("block")) return "blocked";
+  if (lower.includes("todo") || lower.includes("to do") || lower.includes("backlog")) {
+    return "todo";
+  }
+  return "in-progress";
+}
+
+function issueCategory(issueType: string): "feature" | "bugfix" | "research" | "refactor" | "ops" {
+  const lower = issueType.toLowerCase();
+  if (lower.includes("bug")) return "bugfix";
+  if (lower.includes("research")) return "research";
+  if (lower.includes("refactor")) return "refactor";
+  if (lower.includes("task") || lower.includes("chore")) return "ops";
+  return "feature";
+}
+
+function issueStorySlug(issue: JiraIssue): string {
+  const base = sanitizeSegment(`${issue.key}-${issue.summary}`).toLowerCase();
+  return base || issue.key.toLowerCase();
+}
+
+async function pickIssue(provider: WorkspaceIssuesProvider): Promise<JiraIssue | null> {
+  const rows = await provider.getChildren();
+  const issues = rows.filter((row): row is IssueItem => row instanceof IssueItem);
+  if (issues.length === 0) {
+    vscode.window.showWarningMessage("No stories available to launch an agent.");
+    return null;
+  }
+
+  const picked = await vscode.window.showQuickPick(
+    issues.map((item) => ({
+      label: item.issue.key,
+      description: item.issue.status,
+      detail: item.issue.summary,
+      issue: item.issue,
+    })),
+    {
+      title: "Select Story",
+      placeHolder: "Choose a story to manage",
+      ignoreFocusOut: true,
+    },
+  );
+  return picked?.issue ?? null;
+}
+
+async function openIssueInBrowser(client: JiraClient, issue: JiraIssue): Promise<void> {
+  const url = await client.getIssueUrl(issue.key);
+  if (!url) {
+    vscode.window.showWarningMessage("Sign in to Work/Jira before opening issues.");
+    return;
+  }
+  await vscode.env.openExternal(vscode.Uri.parse(url));
+}
+
+async function launchStoryAgent(
+  provider: WorkspaceIssuesProvider,
+  issueInput: unknown,
+  mode: "start" | "new",
+): Promise<void> {
+  const root = workspaceRoot();
+  if (!root) {
+    vscode.window.showWarningMessage("Open a workspace folder before launching story agents.");
+    return;
+  }
+
+  const issue = extractIssue(issueInput) ?? await pickIssue(provider);
+  if (!issue) return;
+
+  const launcher = path.join(root, "scripts", "agent-launch.sh");
+  if (!existsSync(launcher)) {
+    vscode.window.showWarningMessage(
+      `Missing launcher script: ${path.relative(root, launcher)}. Run .claude/setup.sh --apply.`,
+    );
+    return;
+  }
+
+  const title = `Story: ${issue.key}`;
+  if (mode === "start") {
+    const existing = vscode.window.terminals.find((terminal) => terminal.name === title);
+    if (existing) {
+      existing.show(true);
+      return;
+    }
+  }
+
+  const action = mode === "start" ? "continue-last" : "new";
+  const story = issueStorySlug(issue);
+  const progress = issueProgress(issue.status);
+  const category = issueCategory(issue.issueType);
+  const tag = issue.key.toLowerCase();
+
+  const tmuxSession = tmuxSlugify(`agents-claude-${story}`);
+
+  const spawnArgs = [launcher, "claude", action, story, progress, category, tag, "", "auto"];
+  const spawnCommand = spawnArgs.map(shellQuote).join(" ");
+
+  const terminal = vscode.window.createTerminal({
+    name: title,
+    cwd: root,
+    env: {
+      WORK_ID: issue.key,
+      WORK_PHASE: progress,
+      PROJECT: issue.project,
+    },
+    shellPath: ATTACH_SHELL,
+    shellArgs: [
+      "-c",
+      `${spawnCommand} > /dev/null 2>&1; exec tmux attach-session -t ${shellQuote(tmuxSession)}`,
+    ],
+  });
+  terminal.show(true);
+}
+
+function registerCommandSafely(
+  context: vscode.ExtensionContext,
+  id: string,
+  handler: CommandHandler,
+): void {
+  try {
+    context.subscriptions.push(vscode.commands.registerCommand(id, handler));
+  } catch (error) {
+    console.error(`[work] Failed to register command "${id}"`, error);
+  }
+}
 
 export function activate(context: vscode.ExtensionContext): void {
-  outputChannel.show(true);
-  log("Atlassian Sprint extension activating...");
-  log(`Extension path: ${context.extensionPath}`);
+  let provider: WorkspaceIssuesProvider | undefined;
+  let client: JiraClient | undefined;
 
-  scaffoldAgentsDir(context);
-
-  const storage = new StorageService(context, "atlassian");
-  const client = new AtlassianClient(context, storage);
-  const provider = new AtlassianIssuesProvider(client);
-  const webviewServer = new WebviewServer();
-  const buildWatcher = new ExtensionBuildWatcher();
-  buildWatcher.seedFromDisk(context.extensionPath);
-  const extensionInstaller = new ExtensionInstaller();
-  const renderTracker = new WebviewRenderTracker();
-
-  let panel: vscode.WebviewPanel | undefined;
-  let viewProvider: ViewProviderPanel;
-  const attachedPanels = new WeakSet<vscode.WebviewPanel>();
-  const navigateToRoute = (route: WebviewRoute) => {
-    viewProvider?.requestNavigate(route);
+  const requireProvider = (): WorkspaceIssuesProvider | null => {
+    if (provider) return provider;
+    vscode.window.showWarningMessage("Work view is still initializing. Try again in a second.");
+    return null;
   };
 
-  const attachPanel = async (webviewPanel: vscode.WebviewPanel) => {
-    panel = webviewPanel;
-    panel.onDidDispose(() => {
-      panel = undefined;
+  const requireClient = (): JiraClient | null => {
+    if (client) return client;
+    vscode.window.showWarningMessage("Work client is not ready. Check extension logs.");
+    return null;
+  };
+
+  registerCommandSafely(context, VSCODE_COMMANDS.REFRESH, () => {
+    const ready = requireProvider();
+    if (!ready) return;
+    ready.refresh();
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.REFRESH_STORY_TASKS, () => {
+    const ready = requireProvider();
+    if (!ready) return;
+    ready.refresh();
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.OPEN_ISSUE, async (input?: unknown) => {
+    const jira = requireClient();
+    if (!jira) return;
+
+    const issue = extractIssue(input);
+    if (issue) {
+      await openIssueInBrowser(jira, issue);
+      return;
+    }
+
+    const ready = requireProvider();
+    if (!ready) return;
+    const picked = await pickIssue(ready);
+    if (!picked) return;
+    await openIssueInBrowser(jira, picked);
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.ATTACH_AGENT_SESSION, async (input?: unknown) => {
+    const sessionName = extractSessionName(input);
+    if (!sessionName) {
+      vscode.window.showWarningMessage("Select an agent session to attach.");
+      return;
+    }
+    const rootPath = workspaceRoot() ?? undefined;
+    const terminal = vscode.window.createTerminal({
+      name: `Agent: ${sessionName.replace(/^agents-/, "")}`,
+      cwd: rootPath,
+      shellPath: ATTACH_SHELL,
+      shellArgs: ["-c", `exec tmux attach-session -t ${shellQuote(sessionName)}`],
     });
+    terminal.show(true);
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.START_STORY_AGENT, async (input?: unknown) => {
+    const ready = requireProvider();
+    if (!ready) return;
+    await launchStoryAgent(ready, input, "start");
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.NEW_STORY_AGENT, async (input?: unknown) => {
+    const ready = requireProvider();
+    if (!ready) return;
+    await launchStoryAgent(ready, input, "new");
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.START_TASK_TERMINAL, async (input?: unknown) => {
+    const ready = requireProvider();
+    if (!ready) return;
+    await launchStoryAgent(ready, input, "new");
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.OPEN_AGENT_TERMINAL, async (input?: unknown) => {
+    const {
+      tool,
+      role,
+      story,
+      session,
+      windowIndex,
+    } = normalizeAgentTerminalInput(input);
 
-    if (attachedPanels.has(webviewPanel)) {
-      await viewProvider.updateWebview(webviewPanel);
+    const root = workspaceRoot();
+    if (!root) {
+      vscode.window.showWarningMessage("Open a workspace folder before spawning agent terminals.");
       return;
     }
 
-    attachedPanels.add(webviewPanel);
-    await viewProvider.resolveWebviewView(webviewPanel);
-  };
+    const title = windowIndex
+      ? [tool, role, story, `w${windowIndex}`].join(" | ")
+      : [tool, role, story].join(" | ");
 
-  const showAppPanel = async () => {
-    if (panel) {
-      panel.reveal(vscode.ViewColumn.Active, true);
-      await viewProvider.updateWebview(panel);
-      return;
-    }
+    const terminal = vscode.window.createTerminal({
+      name: title,
+      cwd: root,
+      env: {
+        WORK_STORY: story,
+        WORK_AGENT_ROLE: role,
+        AGENT_TOOL: tool.toLowerCase(),
+      },
+      ...(session
+        ? {
+            shellPath: ATTACH_SHELL,
+            shellArgs: [
+              "-c",
+              `exec tmux attach-session -t ${shellQuote(windowIndex ? `${session}:${windowIndex}` : session)}`,
+            ],
+          }
+        : {}),
+    });
+    terminal.show(true);
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.OPEN_AGENT_CHAT, async () => {
+    await vscode.commands.executeCommand("workbench.action.chat.open");
+  });
 
-    panel = vscode.window.createWebviewPanel(
-      ViewProviderPanel.viewType,
-      ViewProviderPanel.title,
-      vscode.ViewColumn.Active,
-      { retainContextWhenHidden: true },
+  for (const legacyCommandId of LEGACY_START_TASK_TERMINAL_COMMANDS) {
+    registerCommandSafely(context, legacyCommandId, async (input?: unknown) => {
+      await vscode.commands.executeCommand(VSCODE_COMMANDS.START_TASK_TERMINAL, input);
+    });
+  }
+
+  try {
+    const storage = new StorageService(context, "work");
+    const policy = new PermissionPolicy();
+    client = new JiraClient(context, storage, policy, IDENTITIES.HUMAN_OWNER);
+    const root = workspaceRoot();
+    const storyReader = root ? new LocalStoryReader(root) : undefined;
+
+    provider = new WorkspaceIssuesProvider(client, storyReader);
+    context.subscriptions.push(
+      vscode.window.registerTreeDataProvider("workIssues", provider),
+    );
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (
+          event.affectsConfiguration("work.explorer.showDetachedSessions")
+          || event.affectsConfiguration("work.explorer.maxSessionsPerStory")
+        ) {
+          provider?.refresh();
+        }
+      }),
     );
 
-    await attachPanel(panel);
-  };
-
-  const closeAppPanel = () => {
-    if (panel) {
-      panel.dispose();
-      panel = undefined;
-    }
-  };
-
-  const refreshAppPanel = async () => {
-    if (!panel) {
-      return;
-    }
-    await viewProvider.updateWebview(panel);
-  };
-
-  const handlers = getHandlers({
-    context,
-    storage,
-    client,
-    provider,
-    webviewServer,
-    extensionInstaller,
-    buildWatcher,
-    renderTracker,
-    showApp: showAppPanel,
-    refreshApp: refreshAppPanel,
-    closeApp: closeAppPanel,
-  });
-
-  const appGlobalState = new AppGlobalStateService(context, {
-    getUniversalConfig: handlers.getUniversalConfig,
-    getFullConfig: handlers.getFullConfig as any,
-    getState: handlers.getState,
-  });
-  appGlobalState.start();
-
-  let wsBridge: WebviewWsBridge | null = null;
-
-  viewProvider = new ViewProviderPanel(context, handlers, renderTracker);
-  context.subscriptions.push(
-    buildWatcher.onDidBuild((timestamp) => {
-      viewProvider?.sendCommand(IPC_COMMANDS.STATE_UPDATED, {
-        dev: { lastExtensionBuildAt: timestamp },
-      });
-    }),
-  );
-  context.subscriptions.push(
-    vscode.window.registerWebviewPanelSerializer(ViewProviderPanel.viewType, {
-      async deserializeWebviewPanel(webviewPanel) {
-        await attachPanel(webviewPanel);
-      },
-    }),
-  );
-
-  context.subscriptions.push(
-    vscode.window.registerUriHandler(
-      new AtlassianUriHandler({
-        showApp: showAppPanel,
-        navigate: navigateToRoute,
-      }),
-    ),
-  );
-
-  context.subscriptions.push(appGlobalState);
-
-  registerTreeProvider(context, provider);
-
-  const configuredUrl = normalizeServerUrl(getWebviewServerUrl());
-  const cwd = resolveWebviewRoot(context.extensionPath);
-
-  if (context.extensionMode === vscode.ExtensionMode.Development && cwd) {
-    buildWatcher.start(cwd);
-  }
-  const devUrl = configuredUrl || `http://localhost:${DEFAULT_WEBVIEW_PORT}/`;
-  const isLocalDevUrl = isLocalhostUrl(devUrl);
-  const devPort = getServerPort(devUrl) || DEFAULT_WEBVIEW_PORT;
-  const wsBridgeToken = isLocalDevUrl ? getOrCreateWsBridgeToken(storage) : "";
-  const wsBridgeHost =
-    (process.env.ATLASSIAN_WS_BRIDGE_HOST ?? DEFAULT_WS_BRIDGE_HOST).trim() || DEFAULT_WS_BRIDGE_HOST;
-  const wsBridgePort = (() => {
-    const raw = (process.env.ATLASSIAN_WS_BRIDGE_PORT ?? "").trim();
-    const parsed = raw ? Number.parseInt(raw, 10) : NaN;
-    if (Number.isFinite(parsed) && parsed > 0 && parsed < 65536) {
-      return parsed;
-    }
-    return DEFAULT_WS_BRIDGE_PORT;
-  })();
-
-  // Start Vite dev server (needs source files on disk)
-  if (cwd && (!configuredUrl || isLocalhostUrl(devUrl))) {
-    const extraEnv: Record<string, string> = {};
-    if (isLocalDevUrl && wsBridgeToken) {
-      extraEnv.VITE_ATLASSIAN_WS_BRIDGE_TOKEN = wsBridgeToken;
-      // Pass the bridge URL into the browser dev server so clients can connect without manual config.
-      const urlHost = wsBridgeHost === "0.0.0.0" || wsBridgeHost === "::" ? "127.0.0.1" : wsBridgeHost;
-      extraEnv.VITE_ATLASSIAN_WS_BRIDGE_URL = `ws://${urlHost}:${wsBridgePort}`;
-    }
-    webviewServer.start(cwd, devPort, extraEnv);
-  }
-
-  // Start WS bridge for Chrome dev view (needs only RPC handlers, not source files)
-  if (isLocalDevUrl) {
-    const token = wsBridgeToken;
-    const wsBridgeOrigins = (process.env.ATLASSIAN_WS_BRIDGE_ORIGINS ?? "").trim();
-    const defaultOrigins = [`http://localhost:${devPort}`, `http://127.0.0.1:${devPort}`];
-    const allowedOrigins = wsBridgeOrigins
-      ? wsBridgeOrigins.split(",").map((o) => o.trim()).filter(Boolean)
-      : defaultOrigins;
-
-    log(`[ws-bridge] auth enabled: token=${token} (manual: http://localhost:${devPort}/?wsToken=...)`);
-
-    wsBridge = new WebviewWsBridge(handlers, {
-      host: wsBridgeHost,
-      port: wsBridgePort,
-      token,
-      allowedOrigins,
+    // Register URI handler for deep links and terminal actions
+    // e.g. vscode-insiders://albertyang.work/terminal?session=X&window=Y
+    const uriHandler = new WorkspaceUriHandler({
+      showApp: async () => {},
+      navigate: async () => {},
     });
-    try {
-      wsBridge.start();
-    } catch (err) {
-      log(`[ws-bridge] failed to start: ${err instanceof Error ? err.message : err}`);
+    context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
+
+    // Connect to WorkMCP WS to receive terminal:open events
+    const mcpEvents = new WorkMcpEventListener();
+    mcpEvents.start();
+    context.subscriptions.push(mcpEvents);
+
+    if (storyReader) {
+      const decorations = new AgentDecorationProvider(storyReader);
+      decorations.startWatching();
+      context.subscriptions.push(decorations);
+      context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorations));
+      context.subscriptions.push(storyReader.watch(() => provider?.refresh()));
     }
-    context.subscriptions.push(wsBridge);
-    viewProvider?.setIpcBroadcast(wsBridge);
-    void waitForServer(devUrl, 20, 500).then((ready) => {
-      if (ready) {
-        log("Webview server ready, refreshing panel.");
-        void refreshAppPanel();
-      }
-    });
-  } else if (configuredUrl) {
-    log(`Webview server not started (using ${configuredUrl}).`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[work] Activation failed", error);
+    vscode.window.showErrorMessage(`Work activation failed: ${message}`);
   }
-
-  const reopenAfterRestart = storage.getGlobalState<boolean>(REOPEN_APP_AFTER_RESTART_KEY);
-  if (reopenAfterRestart) {
-    void storage.setGlobalState(REOPEN_APP_AFTER_RESTART_KEY, false);
-    void showAppPanel();
-  }
-
-  context.subscriptions.push(
-    webviewServer,
-    buildWatcher,
-    extensionInstaller,
-    registerLoggedCommand(VSCODE_COMMANDS.REFRESH, () => {
-      provider.refresh();
-    }),
-    registerLoggedCommand(VSCODE_COMMANDS.OPEN_APP, async (route?: string) => {
-      await showAppPanel();
-      if (route) {
-        navigateToRoute({ name: route });
-      }
-    }),
-    registerLoggedCommand(VSCODE_COMMANDS.LOGIN, async () => {
-      await showAppPanel();
-      navigateToRoute({ name: "setup" });
-    }),
-    registerLoggedCommand(VSCODE_COMMANDS.LOGOUT, async () => {
-      await client.clearAuth();
-      provider.refresh();
-      vscode.window.showInformationMessage("Atlassian credentials cleared.");
-    }),
-    registerLoggedCommand(VSCODE_COMMANDS.RUN_DEV_WEBVIEW, async () => {
-      await handlers.runDevWebview();
-    }),
-    registerLoggedCommand(VSCODE_COMMANDS.RESTART_EXTENSION_HOST, async () => {
-      closeAppPanel();
-      await storage.setGlobalState(REOPEN_APP_AFTER_RESTART_KEY, true);
-      await vscode.commands.executeCommand("workbench.action.restartExtensionHost");
-    }),
-    registerLoggedCommand(VSCODE_COMMANDS.RELOAD_WEBVIEWS, async () => {
-      await handlers.reloadWebviews();
-    }),
-    registerLoggedCommand(VSCODE_COMMANDS.SYNC_ENV_TO_SETTINGS, async () => {
-      await handlers.syncEnvToSettings();
-    }),
-    registerLoggedCommand(VSCODE_COMMANDS.REINSTALL_EXTENSION, async () => {
-      await handlers.reinstallExtension();
-    }),
-    registerLoggedCommand(VSCODE_COMMANDS.OPEN_ISSUE, async (issue) => {
-      const key = issue?.key || issue?.issue?.key;
-      if (!key) {
-        return;
-      }
-      await showAppPanel();
-      navigateToRoute({ path: `/jira/issues/${key}`, issueKey: key });
-    }),
-  );
 }
 
 export function deactivate(): void {
-  // no-op (handled by context subscriptions)
-}
-
-function registerLoggedCommand<T extends (...args: any[]) => any>(
-  commandId: string,
-  handler: T,
-): vscode.Disposable {
-  return vscode.commands.registerCommand(commandId, async (...args: Parameters<T>) => {
-    const action = getActionByVscodeCommand(commandId);
-    const payload = formatLogPayload(args);
-    log(`[cmd] id=${commandId} action=${action.id} payload=${payload}`);
-    return handler(...args);
-  });
-}
-
-function registerTreeProvider(
-  context: vscode.ExtensionContext,
-  provider: AtlassianIssuesProvider,
-  attempt = 0,
-): void {
-  try {
-    context.subscriptions.push(vscode.window.registerTreeDataProvider("atlassianIssues", provider));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn(`Failed to register view (attempt ${attempt + 1}): ${message}`);
-    if (attempt < 3) {
-      setTimeout(() => registerTreeProvider(context, provider, attempt + 1), 500);
-    }
-  }
+  // Disposables are cleaned up automatically via context.subscriptions
 }

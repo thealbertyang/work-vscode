@@ -6,7 +6,7 @@
 # - Which sources are merged to form the resolved Registry snapshot
 #
 # Users should not edit this file in normal usage. Prefer workspace overrides in:
-#   _agents/app.config.toml
+#   .claude/app.config.toml
 #
 # NOTE: This is intentionally a small, stable surface. The universal contract
 # (routes/actions/commands/events/etc) lives in `config/universal.toml`.
@@ -15,9 +15,9 @@ version = 1
 
 [outputs]
 # Workspace-relative paths.
-userConfigPath = "_agents/app.config.toml"
-globalStatePath = "_agents/app-global-state.json"
-persistedStatePath = "_agents/state.json"
+userConfigPath = ".claude/app.config.toml"
+globalStatePath = ".claude/app-global-state.json"
+persistedStatePath = ".claude/state.json"
 
 [sources]
 # Where the universal registry contract is loaded from (workspace override takes priority).

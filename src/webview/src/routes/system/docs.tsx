@@ -178,7 +178,7 @@ function DocsPage() {
 
   const allowedIntentSchemes = useMemo(() => {
     const configured = universalConfig?.app.intentScheme;
-    const legacy = DEFAULT_UNIVERSAL_CONFIG.app.intentScheme ?? "atlassian";
+    const legacy = DEFAULT_UNIVERSAL_CONFIG.app.intentScheme ?? "work";
     return configured ? [configured, legacy] : [legacy];
   }, [universalConfig?.app.intentScheme]);
 
@@ -360,8 +360,8 @@ function DocsPage() {
       ? "Settings"
       : index.source === "extension"
         ? "Extension"
-        : index.source === "workspace"
-          ? "Workspace"
+        : index.source === "local"
+          ? "Local"
           : "None"
     : "None";
 

@@ -2,7 +2,7 @@ import { normalizeRoutePath } from "./routes";
 import { ACTIONS, getActionByVscodeCommand, type ActionDefinition } from "./commands";
 
 export const DEFAULT_UNIVERSAL_INTENT_SCHEME = "app";
-export const LEGACY_UNIVERSAL_INTENT_SCHEMES = ["atlassian"] as const;
+export const LEGACY_UNIVERSAL_INTENT_SCHEMES = ["work"] as const;
 
 const sanitizeScheme = (value?: string | null): string | null => {
   const raw = String(value ?? "").trim();
@@ -126,8 +126,8 @@ const normalizeAllowedSchemes = (input?: string | string[]): string[] | null => 
  * Parses a universal intent URL into a structured {@link UniversalIntent}.
  *
  * Supports two formats:
- * - **Canonical:** `app://{appId}/{kind}/{idOrPath}?...` (e.g., `app://atlassian/route/plan`)
- * - **Legacy:** `{scheme}://{kind}/{idOrPath}?...` (e.g., `atlassian://route/plan`)
+ * - **Canonical:** `app://{appId}/{kind}/{idOrPath}?...` (e.g., `app://work/route/plan`)
+ * - **Legacy:** `{scheme}://{kind}/{idOrPath}?...` (e.g., `work://route/plan`)
  *
  * @param raw - The raw URL string to parse.
  * @param allowedSchemes - Optional scheme allowlist. Defaults to `["app", ...LEGACY_SCHEMES]`.
@@ -161,7 +161,7 @@ export const parseUniversalIntentUrl = (
 
   if (protocol === DEFAULT_UNIVERSAL_INTENT_SCHEME) {
     // Format: app://<appId>/<kind>/<idOrPath>?...
-    // Example: app://atlassian/route/plan
+    // Example: app://work/route/plan
     const segments = (url.pathname || "/").split("/").filter(Boolean);
     const kind = segments[0] as UniversalIntentKind;
     const idOrPath = segments.slice(1).join("/");
@@ -222,7 +222,7 @@ export const parseUniversalIntentUrl = (
   }
 
   // Legacy format: <scheme>://<kind>/<idOrPath>?...
-  // Example: atlassian://route/plan
+  // Example: work://route/plan
   const kind = url.host as UniversalIntentKind;
   const pathname = url.pathname || "/";
   const idOrPath = pathname.replace(/^\/+/, "");
@@ -284,7 +284,7 @@ export const parseUniversalIntentUrl = (
  * @param intent - The intent to serialize.
  * @param scheme - URL scheme (defaults to `"app"`). Use a legacy scheme for backward compat.
  * @param appId - Application identifier used as the URL hostname (defaults to `"app"`).
- * @returns A fully-formed intent URL (e.g., `app://atlassian/route/plan`).
+ * @returns A fully-formed intent URL (e.g., `app://work/route/plan`).
  */
 export const buildUniversalIntentUrl = (intent: UniversalIntent, scheme?: string, appId?: string): string => {
   const normalizedScheme = normalizeUniversalIntentScheme(scheme);
@@ -414,7 +414,7 @@ export const resolveIntentToAction = (
     const def = getActionById(intent.id);
     if (!def) {
       // Allow deep-linking directly to a VS Code command by id using the action kind.
-      const maybeCommand = intent.id.startsWith("atlassian.") ? intent.id : "";
+      const maybeCommand = intent.id.startsWith("work.") ? intent.id : "";
       if (maybeCommand) {
         const resolved = getActionByVscodeCommand(maybeCommand);
         return resolved.vscode ? { command: resolved.vscode } : null;

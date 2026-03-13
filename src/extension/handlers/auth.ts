@@ -2,7 +2,7 @@ import { ConfigurationTarget, ExtensionMode, env, window, workspace } from "vsco
 import {
   getApiTokenConfig,
   getApiTokenConfigSource,
-} from "../providers/data/atlassian/atlassianConfig";
+} from "../providers/data/jira/jiraConfig";
 import { MASKED_SECRET } from "../constants";
 import { SETTINGS_KEYS, type WebviewState } from "../../shared/contracts";
 import type { HandlerDependencies } from "./types";
@@ -80,13 +80,13 @@ export const createAuthHandlers = ({
       ]);
 
       provider.refresh();
-      window.showInformationMessage("Atlassian API token saved.");
+      window.showInformationMessage("Jira API token saved.");
     },
 
     disconnect: async () => {
       await client.clearAuth();
       provider.refresh();
-      window.showInformationMessage("Atlassian connection removed.");
+      window.showInformationMessage("Jira connection removed.");
     },
   };
 };

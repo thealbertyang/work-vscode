@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { DEFAULT_UNIVERSAL_CONFIG } from "@shared/universal";
-import type { UniversalAction, UniversalConfig, UniversalRoute } from "@shared/universal";
+import type { UniversalAction, UniversalCommand, UniversalConfig, UniversalRoute } from "@shared/universal";
 import { DEFAULT_UNIVERSAL_INTENT_SCHEME, buildUniversalIntentUrl, normalizeRoutePath } from "@shared/contracts";
+import type { DocEntry } from "@shared/docs-contract";
 import { useAppContext } from "../contexts/app-context";
+import { useHandlers } from "../hooks/use-handlers";
 import { parseNavTarget } from "../lib/parse-nav-target";
 
 type SearchItem = {
@@ -12,7 +14,21 @@ type SearchItem = {
   hint?: string;
   action: () => void;
   stayOpen?: boolean;
+  hasChildren?: boolean;
 };
+
+type ScopeCategory = "all" | "routes" | "actions" | "commands" | "docs" | "recents";
+
+const SCOPES: { id: ScopeCategory; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "routes", label: "Routes" },
+  { id: "actions", label: "Actions" },
+  { id: "commands", label: "Commands" },
+  { id: "docs", label: "Docs" },
+  { id: "recents", label: "Recents" },
+];
+
+const SCOPE_STORAGE_KEY = "work.commandPalette.scope.v1";
 
 type AppOverlaySearchProps = {
   isOpen: boolean;
@@ -65,8 +81,18 @@ const IconDoc = () => (
   </svg>
 );
 
+const IconTerminal = () => (
+  <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+    <path
+      fill="currentColor"
+      d="M3 4a2 2 0 012-2h10a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V4zm3.7 2.3a1 1 0 00-1.4 1.4L7.58 10l-2.3 2.3a1 1 0 001.42 1.4l3-3a1 1 0 000-1.4l-3-3zM10 13a1 1 0 100 2h4a1 1 0 100-2h-4z"
+    />
+  </svg>
+);
+
 const itemIcon = (id: string) => {
   if (id.startsWith("action:")) return <IconBolt />;
+  if (id.startsWith("command:")) return <IconTerminal />;
   if (id.startsWith("route:")) return <IconArrow />;
   if (id.startsWith("go:")) return <IconArrow />;
   if (id.startsWith("doc:")) return <IconDoc />;
@@ -80,7 +106,7 @@ type RecentEntry = {
   ts: number;
 };
 
-const RECENTS_STORAGE_KEY = "atlassian.commandPalette.recents.v1";
+const RECENTS_STORAGE_KEY = "work.commandPalette.recents.v1";
 const MAX_RECENTS = 14;
 
 const readRecents = (): RecentEntry[] => {
@@ -206,17 +232,30 @@ export function AppOverlaySearch({
   extraItems,
   initialQuery,
 }: AppOverlaySearchProps) {
-  const { universalConfig } = useAppContext();
+  const { universalConfig, isWebview } = useAppContext();
+  const handlers = useHandlers();
   const config: UniversalConfig = universalConfig ?? DEFAULT_UNIVERSAL_CONFIG;
-  const appId = config.app.id ?? DEFAULT_UNIVERSAL_CONFIG.app.id ?? "atlassian";
+  const appId = config.app.id ?? DEFAULT_UNIVERSAL_CONFIG.app.id ?? "work";
   const intentScheme =
     config.app.intentScheme ?? DEFAULT_UNIVERSAL_CONFIG.app.intentScheme ?? DEFAULT_UNIVERSAL_INTENT_SCHEME;
   const inputRef = useRef<HTMLInputElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const [segmentIndex, setSegmentIndex] = useState(0);
   const [recents, setRecents] = useState<RecentEntry[]>([]);
+  const [scopeFocused, setScopeFocused] = useState(false);
+  const [previewRoute, setPreviewRoute] = useState<string | null>(null);
+  const [routeBeforePreview, setRouteBeforePreview] = useState<string | null>(null);
+  const [activeScope, setActiveScope] = useState<ScopeCategory>(() => {
+    try {
+      const stored = window.localStorage.getItem(SCOPE_STORAGE_KEY);
+      if (stored && SCOPES.some((s) => s.id === stored)) return stored as ScopeCategory;
+    } catch { /* ignore */ }
+    return "all";
+  });
+  const [docEntries, setDocEntries] = useState<DocEntry[]>([]);
 
   const recordRecent = useCallback((entry: Omit<RecentEntry, "ts">) => {
     const next: RecentEntry = { ...entry, ts: Date.now() };
@@ -353,10 +392,25 @@ export function AppOverlaySearch({
     return map;
   }, [config.stages]);
 
+  // Persist scope to localStorage
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SCOPE_STORAGE_KEY, activeScope);
+    } catch { /* ignore */ }
+  }, [activeScope]);
+
   useEffect(() => {
     if (!isOpen) return;
     setRecents(readRecents());
-  }, [isOpen]);
+    // Fetch docs index for the docs scope
+    if (isWebview) {
+      handlers.getDocsIndex().then((result) => {
+        setDocEntries(result.entries ?? []);
+      }).catch(() => {
+        setDocEntries([]);
+      });
+    }
+  }, [isOpen, isWebview, handlers]);
 
   const findBestRoutePath = useCallback(
     (prefix: string[]): string => {
@@ -405,12 +459,13 @@ export function AppOverlaySearch({
             ? commandPathLists
             : rpcPathLists;
 
-    if (segmentContext.segments.length === 0) return [];
-    const focus = Math.min(segmentIndex, Math.max(0, segmentContext.segments.length - 1));
-    const prefix = segmentContext.segments.slice(0, focus);
+    // Show CHILDREN of the typed path, not siblings at the cursor position.
+    // e.g. typed "/plan" → prefix=["plan"], childLevel=1 → shows weekly, monthly, ...
+    const prefix = segmentContext.segments;
+    const childLevel = prefix.length;
     const options = new Set<string>();
     for (const segments of lists) {
-      if (segments.length <= focus) continue;
+      if (segments.length <= childLevel) continue;
       let matches = true;
       for (let i = 0; i < prefix.length; i++) {
         if (segments[i] !== prefix[i]) {
@@ -419,7 +474,7 @@ export function AppOverlaySearch({
         }
       }
       if (!matches) continue;
-      const candidate = segments[focus];
+      const candidate = segments[childLevel];
       if (candidate) options.add(candidate);
     }
     return Array.from(options).sort((a, b) => a.localeCompare(b));
@@ -429,14 +484,13 @@ export function AppOverlaySearch({
     rpcPathLists,
     routePathLists,
     segmentContext,
-    segmentIndex,
   ]);
 
   const segmentItems: SearchItem[] = useMemo(() => {
     if (!segmentContext) return [];
     if (segmentOptions.length === 0) return [];
-    const focus = Math.min(segmentIndex, Math.max(0, segmentContext.segments.length - 1));
-    const prefix = segmentContext.segments.slice(0, focus);
+    const prefix = segmentContext.segments;
+    const childLevel = prefix.length;
 
     const buildPreview = (value: string) => {
       if (segmentContext.kind === "route") {
@@ -463,10 +517,28 @@ export function AppOverlaySearch({
       return `/app/${segmentContext.appId}/${segmentContext.kind}/${bestPath}`;
     };
 
-    return segmentOptions.map((value) => ({
-      id: `seg:${focus}:${value}`,
+    const lists =
+      segmentContext.kind === "route"
+        ? routePathLists
+        : segmentContext.kind === "action"
+          ? actionPathLists
+          : segmentContext.kind === "command"
+            ? commandPathLists
+            : rpcPathLists;
+
+    return segmentOptions.map((value) => {
+      // Check if this child has its own children (grandchildren of current prefix)
+      const nextPrefix = [...prefix, value];
+      const grandchildLevel = nextPrefix.length;
+      const hasGrandchildren = lists.some(
+        (segs) => segs.length > grandchildLevel && nextPrefix.every((v, i) => segs[i] === v),
+      );
+
+      return {
+      id: `seg:${childLevel}:${value}`,
       label: value,
       hint: buildPreview(value),
+      hasChildren: hasGrandchildren,
       action: () => {
         if (segmentContext.kind === "route") {
           const bestPath = findBestRoutePath([...prefix, value]);
@@ -485,7 +557,8 @@ export function AppOverlaySearch({
         }
         onNavigate(`${preview}${segmentContext.queryString}`);
       },
-    }));
+    };
+    });
   }, [
     actionPathLists,
     commandPathLists,
@@ -493,9 +566,9 @@ export function AppOverlaySearch({
     namespace,
     onNavigate,
     recordRecent,
+    routePathLists,
     rpcPathLists,
     segmentContext,
-    segmentIndex,
     segmentOptions,
   ]);
 
@@ -522,7 +595,7 @@ export function AppOverlaySearch({
       .sort((a, b) => (a.id ?? "").localeCompare(b.id ?? ""))
       .map((action) => ({
         id: `action:${action.id}`,
-        label: `Run: ${action.id.replace(/^atlassian\\./, "").replace(/\\./g, " ")}`,
+        label: `Run: ${action.id.replace(/^work\\./, "").replace(/\\./g, " ")}`,
         hint: buildUniversalIntentUrl({ kind: "action", id: action.id }, intentScheme, appId),
         action: () => {
           recordRecent({ kind: "action", value: action.id });
@@ -574,10 +647,42 @@ export function AppOverlaySearch({
     return items;
   }, [appId, config.stages, intentScheme, onNavigate, recordRecent]);
 
+  const removeRecent = useCallback((kind: string, value: string) => {
+    setRecents((prev) => {
+      const next = prev.filter((e) => !(e.kind === kind && e.value === value));
+      writeRecents(next);
+      return next;
+    });
+  }, []);
+
+  const clearAllRecents = useCallback(() => {
+    setRecents([]);
+    writeRecents([]);
+  }, []);
+
+  // Validate recents: prune entries that no longer exist in the config
+  const validRecents = useMemo(() => {
+    const routePaths = new Set(
+      (Object.values(config.routes ?? {}) as UniversalRoute[])
+        .filter((r) => typeof r.path === "string")
+        .map((r) => normalizeRoutePath(r.path)),
+    );
+    const actionIds = new Set(
+      (Object.values(config.actions ?? {}) as UniversalAction[])
+        .filter((a) => typeof a.id === "string")
+        .map((a) => a.id),
+    );
+    return recents.filter((entry) => {
+      if (entry.kind === "route") return routePaths.has(normalizeRoutePath(entry.value));
+      if (entry.kind === "action") return actionIds.has(entry.value);
+      return true; // keep "nav" entries (arbitrary URLs)
+    });
+  }, [config.actions, config.routes, recents]);
+
   const recentItems: SearchItem[] = useMemo(() => {
-    if (recents.length === 0) return [];
+    if (validRecents.length === 0) return [];
     const items: SearchItem[] = [];
-    for (const entry of recents) {
+    for (const entry of validRecents) {
       if (entry.kind === "route") {
         const path = normalizeRoutePath(entry.value);
         items.push({
@@ -590,7 +695,7 @@ export function AppOverlaySearch({
         const id = entry.value;
         items.push({
           id: `recent:action:${id}`,
-          label: `Recent: ${id.replace(/^atlassian\\./, "").replace(/\\./g, " ")}`,
+          label: `Recent: ${id.replace(/^work\\./, "").replace(/\\./g, " ")}`,
           hint: buildUniversalIntentUrl({ kind: "action", id }, intentScheme, appId),
           action: () => onExecute(id),
         });
@@ -604,8 +709,60 @@ export function AppOverlaySearch({
         });
       }
     }
-    return items.slice(0, 6);
-  }, [appId, intentScheme, onExecute, onNavigate, recents]);
+    if (items.length > 0) {
+      items.push({
+        id: "recent:clear-all",
+        label: "Clear all recents",
+        action: () => clearAllRecents(),
+        stayOpen: true,
+      });
+    }
+    return items;
+  }, [appId, clearAllRecents, intentScheme, onExecute, onNavigate, validRecents]);
+
+  const docItems: SearchItem[] = useMemo(() => {
+    if (docEntries.length === 0) return [];
+    return docEntries.map((entry) => ({
+      id: `doc:${entry.id}`,
+      label: `Doc: ${entry.title}`,
+      hint: `/system/docs?doc=${encodeURIComponent(entry.id)}`,
+      action: () => {
+        onNavigate(`/system/docs?doc=${encodeURIComponent(entry.id)}`);
+      },
+    }));
+  }, [docEntries, onNavigate]);
+
+  const commandSearchItems: SearchItem[] = useMemo(() => {
+    const commands = Object.values(config.commands ?? {}) as UniversalCommand[];
+    return commands
+      .filter((cmd) => typeof cmd?.id === "string" && cmd.id.trim().length > 0)
+      .filter((cmd) => cmd.id.startsWith(`${namespace}.`))
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((cmd) => ({
+        id: `command:${cmd.id}`,
+        label: `Cmd: ${cmd.id.replace(new RegExp(`^${namespace}\\.`), "").replace(/\./g, " ")}`,
+        hint: `/app/${appId}/command/${cmd.id.replace(new RegExp(`^${namespace}\\.`), "").replace(/\./g, "/")}`,
+        action: () => {
+          onNavigate(`/app/${appId}/command/${cmd.id.replace(new RegExp(`^${namespace}\\.`), "").replace(/\./g, "/")}`);
+        },
+      }));
+  }, [appId, config.commands, namespace, onNavigate]);
+
+  const rpcSearchItems: SearchItem[] = useMemo(() => {
+    const commands = Object.values(config.commands ?? {}) as UniversalCommand[];
+    return commands
+      .filter((cmd) => cmd.kind === "rpc")
+      .filter((cmd) => typeof cmd?.id === "string" && cmd.id.trim().length > 0)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((cmd) => ({
+        id: `command:rpc:${cmd.id}`,
+        label: `RPC: ${cmd.id.replace(/\./g, " ")}`,
+        hint: `/app/${appId}/rpc/${cmd.id.replace(/\./g, "/")}`,
+        action: () => {
+          onNavigate(`/app/${appId}/rpc/${cmd.id.replace(/\./g, "/")}`);
+        },
+      }));
+  }, [appId, config.commands, onNavigate]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const linkMode = useMemo(() => {
@@ -614,15 +771,80 @@ export function AppOverlaySearch({
     return !/\s/.test(query.trim());
   }, [query, segmentContext]);
 
+  const scopedItems = useCallback(
+    (items: {
+      recentItems: SearchItem[];
+      commonItems: SearchItem[];
+      routeItems: SearchItem[];
+      actionItems: SearchItem[];
+      commandSearchItems: SearchItem[];
+      rpcSearchItems: SearchItem[];
+      docItems: SearchItem[];
+      extraItems?: SearchItem[];
+    }) => {
+      const extra = items.extraItems ?? [];
+      switch (activeScope) {
+        case "routes":
+          return [...items.routeItems, ...items.commonItems, ...extra];
+        case "actions":
+          return [...items.actionItems, ...extra];
+        case "commands":
+          return [...items.commandSearchItems, ...items.rpcSearchItems, ...extra];
+        case "docs":
+          return [...items.docItems, ...extra];
+        case "recents":
+          return [...items.recentItems, ...extra];
+        case "all":
+        default:
+          return [
+            ...items.commonItems,
+            ...extra,
+            ...items.routeItems,
+            ...items.actionItems,
+            ...items.commandSearchItems,
+            ...items.rpcSearchItems,
+            ...items.recentItems,
+            ...items.docItems,
+          ];
+      }
+    },
+    [activeScope],
+  );
+
+  // Top 3 recents that match the current query or segment path
+  const relevantRecents = useMemo(() => {
+    if (recentItems.length === 0) return [];
+    // Exclude the "clear all" item from contextual recents
+    const actual = recentItems.filter((r) => r.id !== "recent:clear-all");
+    if (!query.trim()) return actual.slice(0, 3);
+    const q = query.trim().toLowerCase();
+    return actual
+      .filter((item) => `${item.label} ${item.hint ?? ""}`.toLowerCase().includes(q))
+      .slice(0, 3);
+  }, [query, recentItems]);
+
   const allItems = useMemo(() => {
+    const sources = { recentItems, commonItems, routeItems, actionItems, commandSearchItems, rpcSearchItems, docItems, extraItems };
     if (!query.trim()) {
-      return [...recentItems, ...commonItems, ...(extraItems ?? []), ...routeItems, ...actionItems];
+      if (activeScope === "recents") {
+        return [...recentItems, ...(extraItems ?? [])];
+      }
+      // Cap recents to 3 outside the dedicated recents scope
+      const topRecents = recentItems.filter((r) => r.id !== "recent:clear-all").slice(0, 3);
+      if (activeScope === "all") {
+        return [...commonItems, ...(extraItems ?? []), ...routeItems, ...actionItems, ...commandSearchItems, ...rpcSearchItems, ...topRecents, ...docItems];
+      }
+      const scoped = scopedItems({ ...sources, recentItems: topRecents });
+      return scoped;
     }
     if (linkMode) {
-      return [...(directItem ? [directItem] : []), ...segmentItems, ...(extraItems ?? [])];
+      // Include matching recents alongside segment tree items
+      return [...(directItem ? [directItem] : []), ...segmentItems, ...relevantRecents, ...(extraItems ?? [])];
     }
-    return [...(directItem ? [directItem] : []), ...(extraItems ?? []), ...routeItems, ...actionItems];
-  }, [actionItems, commonItems, directItem, extraItems, linkMode, query, recentItems, routeItems, segmentItems]);
+    const cappedSources = activeScope === "recents" ? sources : { ...sources, recentItems: relevantRecents };
+    const scoped = scopedItems(cappedSources);
+    return [...(directItem ? [directItem] : []), ...scoped];
+  }, [activeScope, actionItems, commandSearchItems, commonItems, directItem, docItems, extraItems, linkMode, query, recentItems, relevantRecents, routeItems, rpcSearchItems, scopedItems, segmentItems]);
 
   const filtered = linkMode
     ? allItems
@@ -639,6 +861,10 @@ export function AppOverlaySearch({
       setQuery(normalizedSeed);
       setActiveIndex(0);
       setSegmentIndex(0);
+      // Reset scope to 'all' when opening fresh (no initialQuery)
+      if (!seed) {
+        setActiveScope("all");
+      }
       requestAnimationFrame(() => {
         inputRef.current?.focus();
         if (normalizedSeed) {
@@ -647,6 +873,23 @@ export function AppOverlaySearch({
       });
     }
   }, [isOpen, initialQuery]);
+
+  // Clear state when palette closes
+  useEffect(() => {
+    if (!isOpen) {
+      setPreviewRoute(null);
+      setRouteBeforePreview(null);
+      setScopeFocused(false);
+    }
+  }, [isOpen]);
+
+  // Unlock results height when leaving preview
+  useEffect(() => {
+    if (!previewRoute) {
+      const el = resultsRef.current;
+      if (el) el.style.minHeight = "";
+    }
+  }, [previewRoute]);
 
   useEffect(() => {
     const active = itemRefs.current[activeIndex];
@@ -658,27 +901,174 @@ export function AppOverlaySearch({
     (e: KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Escape") {
         e.preventDefault();
+        // Revert preview route before closing
+        if (previewRoute && routeBeforePreview) {
+          onNavigate(routeBeforePreview);
+        }
+        setPreviewRoute(null);
+        setRouteBeforePreview(null);
         onClose();
         return;
       }
+      // ── Scope-bar focused: handle all keys here before anything else ──
+      if (scopeFocused) {
+        if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+          e.preventDefault();
+          const scopeIds = SCOPES.map((s) => s.id);
+          const currentIdx = scopeIds.indexOf(activeScope);
+          const delta = e.key === "ArrowRight" ? 1 : -1;
+          const nextIdx = (currentIdx + delta + scopeIds.length) % scopeIds.length;
+          setActiveScope(scopeIds[nextIdx]);
+          setActiveIndex(0);
+          return;
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setScopeFocused(false);
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          // Already at top, no-op
+          return;
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          // Confirm scope selection, return to results
+          setScopeFocused(false);
+          return;
+        }
+        // Any other key (typing): exit scope focus, let input handle it
+        setScopeFocused(false);
+      }
+
+      // Tab / Shift+Tab cycles scopes when not in segment context
+      if (e.key === "Tab" && !segmentContext) {
+        e.preventDefault();
+        const scopeIds = SCOPES.map((s) => s.id);
+        const currentIdx = scopeIds.indexOf(activeScope);
+        const delta = e.shiftKey ? -1 : 1;
+        const nextIdx = (currentIdx + delta + scopeIds.length) % scopeIds.length;
+        setActiveScope(scopeIds[nextIdx]);
+        setActiveIndex(0);
+        return;
+      }
+      // ArrowLeft while previewing: revert and return to palette (works in any mode)
+      if (e.key === "ArrowLeft" && previewRoute && routeBeforePreview) {
+        e.preventDefault();
+        onNavigate(routeBeforePreview);
+        setPreviewRoute(null);
+        setRouteBeforePreview(null);
+        return;
+      }
+
+      // ArrowRight while previewing: no-op (← reverts, Enter confirms)
+      if (e.key === "ArrowRight" && previewRoute) {
+        e.preventDefault();
+        return;
+      }
+
+      // ArrowRight in keyword mode (no segmentContext): enter tree navigation
+      // by injecting the highlighted item's path into the query field.
+      if (e.key === "ArrowRight" && !segmentContext) {
+        const item = filtered[activeIndex];
+        if (!item) return;
+        e.preventDefault();
+
+        // Extract a navigable path from the item id
+        let pathToInject: string | null = null;
+        if (item.id.startsWith("route:")) {
+          // route:plan → find the route path from config
+          const routeId = item.id.slice("route:".length);
+          const route = Object.values(config.routes ?? {}).find((r: any) => r.id === routeId) as UniversalRoute | undefined;
+          if (route?.path) pathToInject = route.path;
+        } else if (item.id.startsWith("go:stage:")) {
+          // go:stage:plan → extract from hint (intent URL) or label
+          const match = item.label.match(/Go:\s*(.+)/);
+          if (match) {
+            // Find the stage's default route
+            const stages = Object.values(config.stages ?? {});
+            const stage = stages.find((s: any) => s.label === match[1].trim());
+            if (stage && typeof stage.defaultRoute === "string") {
+              pathToInject = normalizeRoutePath(stage.defaultRoute);
+            }
+          }
+        } else if (item.id.startsWith("recent:route:")) {
+          pathToInject = item.id.slice("recent:route:".length);
+        } else if (item.id.startsWith("action:")) {
+          const actionId = item.id.slice("action:".length);
+          pathToInject = `/app/${appId}/action/${actionId.replace(new RegExp(`^${namespace}\\.`), "").replace(/\./g, "/")}`;
+        } else if (item.id.startsWith("recent:nav:")) {
+          pathToInject = item.id.slice("recent:nav:".length);
+        }
+
+        if (pathToInject) {
+          const normalized = normalizeRoutePath(pathToInject);
+          setQuery(normalized);
+          setSegmentIndex(0);
+          setActiveIndex(0);
+        }
+        return;
+      }
+
+      // ArrowLeft in keyword mode: no-op (let native cursor behavior work)
+      // ArrowLeft/Right in segment mode: hierarchical tree navigation
       if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && segmentContext) {
         e.preventDefault();
-        const max = Math.max(0, segmentContext.segments.length - 1);
 
-        // At the leaf segment, ArrowRight acts like a "preview/open" that keeps the palette open.
-        // This makes segment navigation feel closer to a tree/mega-menu interaction.
-        if (e.key === "ArrowRight" && segmentIndex >= max) {
+        if (e.key === "ArrowRight") {
+          // No children → leaf node → enter preview mode
+          if (segmentOptions.length === 0) {
+            const item = filtered[activeIndex];
+            if (item) {
+              const el = resultsRef.current;
+              if (el) el.style.minHeight = `${el.offsetHeight}px`;
+
+              const currentPath = window.location.hash.replace(/^#/, "") || "/plan";
+              setRouteBeforePreview(currentPath);
+              const targetPath = item.hint ?? "";
+              onNavigate(targetPath);
+              setPreviewRoute(targetPath);
+            }
+            return;
+          }
+
+          // Drill into highlighted child: append it to the query path
           const item = filtered[activeIndex];
           if (item) {
-            item.action();
+            const childValue = segmentOptions[activeIndex] ?? segmentOptions[0];
+            if (childValue) {
+              const newSegments = [...segmentContext.segments, childValue];
+              if (segmentContext.kind === "route") {
+                setQuery(normalizeRoutePath(`/${newSegments.join("/")}`));
+              } else {
+                setQuery(`/app/${segmentContext.appId}/${segmentContext.kind}/${newSegments.join("/")}`);
+              }
+              setSegmentIndex(newSegments.length - 1);
+              setActiveIndex(0);
+            }
           }
           return;
         }
 
-        const delta = e.key === "ArrowRight" ? 1 : -1;
-        setSegmentIndex((prev) => Math.min(max, Math.max(0, prev + delta)));
-        setActiveIndex(0);
-        return;
+        if (e.key === "ArrowLeft") {
+          // Go to parent: remove last segment
+          const parentSegments = segmentContext.segments.slice(0, -1);
+          if (parentSegments.length === 0) {
+            // At root level, exit segment mode
+            setQuery("");
+            setSegmentIndex(0);
+          } else {
+            if (segmentContext.kind === "route") {
+              setQuery(normalizeRoutePath(`/${parentSegments.join("/")}`));
+            } else {
+              setQuery(`/app/${segmentContext.appId}/${segmentContext.kind}/${parentSegments.join("/")}`);
+            }
+            setSegmentIndex(parentSegments.length - 1);
+          }
+          setActiveIndex(0);
+          return;
+        }
       }
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -687,11 +1077,43 @@ export function AppOverlaySearch({
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
+        if (activeIndex <= 0) {
+          // At top of results, move focus to scope bar
+          setScopeFocused(true);
+          return;
+        }
         setActiveIndex((prev) => Math.max(prev - 1, 0));
         return;
       }
+      // Delete/Backspace removes the highlighted recent item (when input is empty)
+      if ((e.key === "Delete" || (e.key === "Backspace" && !query.trim())) && filtered[activeIndex]) {
+        const item = filtered[activeIndex];
+        if (item.id.startsWith("recent:route:")) {
+          e.preventDefault();
+          removeRecent("route", item.id.slice("recent:route:".length));
+          return;
+        }
+        if (item.id.startsWith("recent:action:")) {
+          e.preventDefault();
+          removeRecent("action", item.id.slice("recent:action:".length));
+          return;
+        }
+        if (item.id.startsWith("recent:nav:")) {
+          e.preventDefault();
+          removeRecent("nav", item.id.slice("recent:nav:".length));
+          return;
+        }
+      }
       if (e.key === "Enter" && filtered[activeIndex]) {
         e.preventDefault();
+        // If previewing, confirm the preview route
+        if (previewRoute) {
+          recordRecent({ kind: "route", value: previewRoute });
+          setPreviewRoute(null);
+          setRouteBeforePreview(null);
+          onClose();
+          return;
+        }
         const item = filtered[activeIndex];
         item.action();
         if (!item.stayOpen) {
@@ -699,8 +1121,53 @@ export function AppOverlaySearch({
         }
       }
     },
-    [filtered, activeIndex, onClose, segmentContext, segmentIndex],
+    [activeScope, filtered, activeIndex, onClose, onNavigate, previewRoute, recordRecent, removeRecent, routeBeforePreview, scopeFocused, segmentContext, segmentIndex, segmentOptions],
   );
+
+  const footerHints = useMemo(() => {
+    if (previewRoute) {
+      return [
+        { key: "Enter", label: "Confirm" },
+        { key: "\u2190", label: "Back" },
+        { key: "Esc", label: "Cancel" },
+      ];
+    }
+    if (segmentContext) {
+      return [
+        { key: "\u2190", label: "Back" },
+        { key: "\u2192", label: "Deeper" },
+        { key: "\u2191\u2193", label: "Options" },
+        { key: "Enter", label: "Open" },
+        { key: "Esc", label: "Close" },
+      ];
+    }
+    if (scopeFocused) {
+      return [
+        { key: "\u2190\u2192", label: "Scopes" },
+        { key: "\u2193", label: "Results" },
+        { key: "Esc", label: "Close" },
+      ];
+    }
+    const isRecent = filtered[activeIndex]?.id.startsWith("recent:");
+    const hints = [
+      { key: "\u2191\u2193", label: "Navigate" },
+      { key: "\u2192", label: "Drill in" },
+      { key: "Enter", label: "Open" },
+      { key: "Tab", label: "Scope" },
+      { key: "Esc", label: "Close" },
+    ];
+    if (isRecent) hints.splice(3, 0, { key: "Del", label: "Remove" });
+    return hints;
+  }, [filtered, activeIndex, previewRoute, scopeFocused, segmentContext]);
+
+  const activeItemId = filtered[activeIndex] ? `palette-item-${activeIndex}` : undefined;
+
+  const statusText = useMemo(() => {
+    if (previewRoute) return `Previewing ${previewRoute}`;
+    const scopeLabel = activeScope === "all" ? "All" : activeScope;
+    const pathLabel = segmentContext ? ` in ${segmentContext.segments.join("/")}` : "";
+    return `${scopeLabel}${pathLabel}, ${filtered.length} result${filtered.length === 1 ? "" : "s"}`;
+  }, [activeScope, filtered.length, previewRoute, segmentContext]);
 
   if (!isOpen) return null;
 
@@ -708,10 +1175,17 @@ export function AppOverlaySearch({
     <div
       className="command-palette-backdrop"
       role="presentation"
-      onMouseDown={() => onClose()}
+      onMouseDown={() => {
+        if (previewRoute && routeBeforePreview) {
+          onNavigate(routeBeforePreview);
+        }
+        setPreviewRoute(null);
+        setRouteBeforePreview(null);
+        onClose();
+      }}
     >
       <div
-        className="command-palette-panel"
+        className={`command-palette-panel${previewRoute ? " palette-previewing" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
@@ -723,6 +1197,12 @@ export function AppOverlaySearch({
           </span>
           <input
             ref={inputRef}
+            role="combobox"
+            aria-haspopup="tree"
+            aria-expanded={filtered.length > 0}
+            aria-controls="palette-tree"
+            aria-activedescendant={activeItemId}
+            aria-autocomplete="list"
             type="text"
             className="command-palette-input"
             placeholder="Search actions or paste a link..."
@@ -730,47 +1210,84 @@ export function AppOverlaySearch({
             onChange={(e) => {
               setQuery(e.target.value);
               setActiveIndex(0);
+              setScopeFocused(false);
             }}
             onKeyDown={handleKeyDown}
             spellCheck={false}
           />
-          <button type="button" className="command-palette-close" onClick={onClose}>
+          <button type="button" className="command-palette-close" aria-label="Close" onClick={onClose}>
             Esc
           </button>
         </div>
 
-        {segmentContext ? (
-          <div className="command-palette-pathbar" aria-hidden="true">
-            <span className="command-palette-pathbar-label">{segmentContext.kind}</span>
-            <div className="command-palette-pathbar-segments">
-              {segmentContext.segments.map((segment, idx) => (
-                <button
-                  key={`${segment}-${idx}`}
-                  type="button"
-                  className={`command-palette-segment${idx === segmentIndex ? " segment-active" : ""}`}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => {
-                    setSegmentIndex(idx);
-                    setActiveIndex(0);
-                  }}
-                  title="Use \u2190/\u2192 to select a segment"
-                >
-                  {segment}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        <div className="command-palette-breadcrumb" aria-label="Navigation path" role="navigation">
+          <button
+            type="button"
+            className={`command-palette-token${!segmentContext ? ' token-active' : ''}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setActiveIndex(0);
+            }}
+          >
+            {activeScope === 'all' ? 'All' : activeScope.charAt(0).toUpperCase() + activeScope.slice(1)}
+          </button>
+          {segmentContext && segmentContext.segments.map((segment, idx) => (
+            <Fragment key={`${segment}-${idx}`}>
+              <span className="command-palette-chevron">{'\u25B8'}</span>
+              <button
+                type="button"
+                className={`command-palette-token${idx === segmentContext.segments.length - 1 ? ' token-active' : ''}`}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  // Truncate path to this level to browse its children
+                  const truncated = segmentContext.segments.slice(0, idx + 1);
+                  if (segmentContext.kind === "route") {
+                    setQuery(normalizeRoutePath(`/${truncated.join("/")}`));
+                  } else {
+                    setQuery(`/app/${segmentContext.appId}/${segmentContext.kind}/${truncated.join("/")}`);
+                  }
+                  setSegmentIndex(idx);
+                  setActiveIndex(0);
+                }}
+              >
+                {segment}
+              </button>
+            </Fragment>
+          ))}
+        </div>
+
+        <div className="command-palette-scopes" role="radiogroup" aria-label="Search scope">
+          {SCOPES.map((scope) => (
+            <button
+              key={scope.id}
+              type="button"
+              role="radio"
+              aria-checked={activeScope === scope.id}
+              className={`command-palette-scope-pill${activeScope === scope.id ? " scope-active" : ""}${scopeFocused && activeScope === scope.id ? " scope-focused" : ""}`}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setActiveScope(scope.id);
+                setActiveIndex(0);
+              }}
+            >
+              {scope.label}
+            </button>
+          ))}
+        </div>
 
         {filtered.length > 0 ? (
-          <div className="command-palette-results">
+          <div ref={resultsRef} id="palette-tree" role="tree" aria-label={statusText} className="command-palette-results">
             {filtered.map((item, i) => (
-              <button
+              <div
                 key={item.id}
+                id={`palette-item-${i}`}
                 ref={(el) => {
                   itemRefs.current[i] = el;
                 }}
-                type="button"
+                role="treeitem"
+                aria-selected={i === activeIndex}
+                aria-expanded={item.hasChildren ? false : undefined}
+                tabIndex={-1}
                 className={`command-palette-item${i === activeIndex ? " palette-active" : ""}`}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
@@ -785,17 +1302,42 @@ export function AppOverlaySearch({
                   {itemIcon(item.id)}
                 </span>
                 <span className="command-palette-item-label">{item.label}</span>
-                {item.hint ? <span className="command-palette-item-hint">{item.hint}</span> : null}
-              </button>
+                {item.hint ? <span className="command-palette-item-hint" aria-hidden="true">{item.hint}</span> : null}
+                {item.id.startsWith("recent:") && (
+                  <button
+                    type="button"
+                    className="command-palette-item-dismiss"
+                    aria-label={`Remove ${item.label}`}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (item.id.startsWith("recent:route:")) removeRecent("route", item.id.slice("recent:route:".length));
+                      else if (item.id.startsWith("recent:action:")) removeRecent("action", item.id.slice("recent:action:".length));
+                      else if (item.id.startsWith("recent:nav:")) removeRecent("nav", item.id.slice("recent:nav:".length));
+                    }}
+                  >
+                    {'\u00d7'}
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         ) : (
-          <div className="command-palette-empty">No matches.</div>
+          <div id="palette-tree" role="tree" className="command-palette-empty">
+            <div role="treeitem" aria-selected="false">No matches.</div>
+          </div>
         )}
 
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {statusText}
+        </div>
+
         <div className="command-palette-footer" aria-hidden="true">
-          <span>Enter to open</span>
-          <span>Esc to close</span>
+          {footerHints.map((hint) => (
+            <span key={hint.key} className="command-palette-hint">
+              <kbd className="command-palette-kbd">{hint.key}</kbd> {hint.label}
+            </span>
+          ))}
         </div>
       </div>
     </div>,

@@ -36,7 +36,7 @@ export const getIpcCommand = (message: unknown): IpcMessage | undefined => {
   if (message.kind === "command" && typeof message.name === "string") {
     return { name: message.name, payload: message.payload };
   }
-  if (message.type === "atlassian:navigate") {
+  if (message.type === "work:navigate") {
     return { name: IPC_COMMANDS.NAVIGATE, payload: { route: message.route } };
   }
   return undefined;
@@ -49,7 +49,7 @@ export const getIpcEvent = (message: unknown): IpcMessage | undefined => {
   if (message.kind === "event" && typeof message.name === "string") {
     return { name: message.name, payload: message.payload };
   }
-  if (message.type === "atlassian:webview-ready") {
+  if (message.type === "work:webview-ready") {
     return { name: IPC_EVENTS.WEBVIEW_READY };
   }
   return undefined;

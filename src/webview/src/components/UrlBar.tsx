@@ -38,8 +38,8 @@ export function UrlBar({
       inputRef.current?.focus();
       inputRef.current?.select();
     };
-    window.addEventListener("atlassian:urlBarFocus", handleFocusRequest);
-    return () => window.removeEventListener("atlassian:urlBarFocus", handleFocusRequest);
+    window.addEventListener("work:urlBarFocus", handleFocusRequest);
+    return () => window.removeEventListener("work:urlBarFocus", handleFocusRequest);
   }, [disabled]);
 
   const handleClick = useCallback(() => {
@@ -109,7 +109,7 @@ export function UrlBar({
         </button>
       </div>
       <span className="url-bar-nav-sep" />
-      {stageIcon ? <span className="url-bar-icon">{stageIcon}</span> : null}
+      {stageIcon ? <span className={`url-bar-icon codicon ${stageIcon}`} aria-hidden="true" /> : null}
       <input
         ref={inputRef}
         type="text"

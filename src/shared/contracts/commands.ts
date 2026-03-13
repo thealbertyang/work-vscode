@@ -1,16 +1,23 @@
 import type { RouteName } from "./routes";
 
 export const VSCODE_COMMANDS = {
-  OPEN_APP: "atlassian.openApp",
-  LOGIN: "atlassian.login",
-  LOGOUT: "atlassian.logout",
-  REFRESH: "atlassian.refresh",
-  RUN_DEV_WEBVIEW: "atlassian.runDevWebview",
-  RESTART_EXTENSION_HOST: "atlassian.restartExtensionHost",
-  RELOAD_WEBVIEWS: "atlassian.reloadWebviews",
-  SYNC_ENV_TO_SETTINGS: "atlassian.syncEnvToSettings",
-  REINSTALL_EXTENSION: "atlassian.reinstallExtension",
-  OPEN_ISSUE: "atlassian.openIssue",
+  OPEN_APP: "work.openApp",
+  LOGIN: "work.login",
+  LOGOUT: "work.logout",
+  REFRESH: "work.refresh",
+  REFRESH_STORY_TASKS: "work.refreshStoryTasks",
+  RUN_DEV_WEBVIEW: "work.runDevWebview",
+  RESTART_EXTENSION_HOST: "work.restartExtensionHost",
+  RELOAD_WEBVIEWS: "work.reloadWebviews",
+  SYNC_ENV_TO_SETTINGS: "work.syncEnvToSettings",
+  REINSTALL_EXTENSION: "work.reinstallExtension",
+  OPEN_ISSUE: "work.openIssue",
+  START_TASK_TERMINAL: "work.startTaskTerminal",
+  OPEN_AGENT_CHAT: "work.openAgentChat",
+  ATTACH_AGENT_SESSION: "work.attachAgentSession",
+  START_STORY_AGENT: "work.startStoryAgent",
+  NEW_STORY_AGENT: "work.newStoryAgent",
+  OPEN_AGENT_TERMINAL: "work.openAgentTerminal",
 } as const;
 
 export type VscodeCommandId = (typeof VSCODE_COMMANDS)[keyof typeof VSCODE_COMMANDS];
@@ -48,10 +55,11 @@ export const RPC_METHODS = {
   RUN_DEV_WEBVIEW: "runDevWebview",
   RESTART_EXTENSION_HOST: "restartExtensionHost",
   RELOAD_WEBVIEWS: "reloadWebviews",
-  START_DEV_TASK_TERMINAL: "startDevTaskTerminal",
+  START_TASK_TERMINAL: "startTaskTerminal",
   GET_AUTOMATIONS: "getAutomations",
   GET_AUTOMATION_RUNS: "getAutomationRuns",
   GET_UNIVERSAL_CONFIG: "getUniversalConfig",
+  OPEN_AGENT_TERMINAL: "openAgentTerminal",
 } as const;
 
 export type RpcMethod = (typeof RPC_METHODS)[keyof typeof RPC_METHODS];
@@ -66,76 +74,107 @@ export type ActionDefinition = {
 
 export const ACTIONS = {
   APP_OPEN: {
-    id: "atlassian.app.open",
+    id: "work.app.open",
     vscode: VSCODE_COMMANDS.OPEN_APP,
-    route: "overview",
+    route: "plan",
   },
   APP_LOGIN: {
-    id: "atlassian.app.login",
+    id: "work.app.login",
     vscode: VSCODE_COMMANDS.LOGIN,
-    route: "setup",
+    route: "systemSettings",
   },
   APP_LOGOUT: {
-    id: "atlassian.app.logout",
+    id: "work.app.logout",
     vscode: VSCODE_COMMANDS.LOGOUT,
   },
   APP_REFRESH: {
-    id: "atlassian.app.refresh",
+    id: "work.app.refresh",
     vscode: VSCODE_COMMANDS.REFRESH,
   },
+  APP_REFRESH_STORY_TASKS: {
+    id: "work.app.refreshStoryTasks",
+    vscode: VSCODE_COMMANDS.REFRESH_STORY_TASKS,
+  },
   ISSUE_OPEN: {
-    id: "atlassian.issue.open",
+    id: "work.issue.open",
     vscode: VSCODE_COMMANDS.OPEN_ISSUE,
-    route: "jiraIssue",
+    route: "reviewIssue",
   },
   DEV_RUN_WEBVIEW: {
-    id: "atlassian.dev.runWebview",
+    id: "work.dev.runWebview",
     vscode: VSCODE_COMMANDS.RUN_DEV_WEBVIEW,
     rpc: RPC_METHODS.RUN_DEV_WEBVIEW,
   },
   DEV_RESTART_EXTENSION_HOST: {
-    id: "atlassian.dev.restartExtensionHost",
+    id: "work.dev.restartExtensionHost",
     vscode: VSCODE_COMMANDS.RESTART_EXTENSION_HOST,
     rpc: RPC_METHODS.RESTART_EXTENSION_HOST,
   },
   DEV_RELOAD_WEBVIEWS: {
-    id: "atlassian.dev.reloadWebviews",
+    id: "work.dev.reloadWebviews",
     vscode: VSCODE_COMMANDS.RELOAD_WEBVIEWS,
     rpc: RPC_METHODS.RELOAD_WEBVIEWS,
   },
   DEV_SYNC_ENV: {
-    id: "atlassian.dev.syncEnvToSettings",
+    id: "work.dev.syncEnvToSettings",
     vscode: VSCODE_COMMANDS.SYNC_ENV_TO_SETTINGS,
     rpc: RPC_METHODS.SYNC_ENV_TO_SETTINGS,
   },
   DEV_REINSTALL_EXTENSION: {
-    id: "atlassian.dev.reinstallExtension",
+    id: "work.dev.reinstallExtension",
     vscode: VSCODE_COMMANDS.REINSTALL_EXTENSION,
     rpc: RPC_METHODS.REINSTALL_EXTENSION,
   },
   DEV_TASK_TERMINAL: {
-    id: "atlassian.dev.startTaskTerminal",
-    rpc: RPC_METHODS.START_DEV_TASK_TERMINAL,
+    id: "work.dev.startTaskTerminal",
+    vscode: VSCODE_COMMANDS.START_TASK_TERMINAL,
+    rpc: RPC_METHODS.START_TASK_TERMINAL,
   },
   UNIVERSAL_CONFIG_GET: {
-    id: "atlassian.universal.getConfig",
+    id: "work.universal.getConfig",
     rpc: RPC_METHODS.GET_UNIVERSAL_CONFIG,
   },
+  AGENT_CHAT_OPEN: {
+    id: "work.agent.openChat",
+    vscode: VSCODE_COMMANDS.OPEN_AGENT_CHAT,
+    description: "Open VS Code Chat with Claude agent",
+  },
+  AGENT_SESSION_ATTACH: {
+    id: "work.agent.attachSession",
+    vscode: VSCODE_COMMANDS.ATTACH_AGENT_SESSION,
+    description: "Attach VS Code terminal to tmux agent session",
+  },
+  AGENT_STORY_START: {
+    id: "work.agent.startStory",
+    vscode: VSCODE_COMMANDS.START_STORY_AGENT,
+    description: "Start or focus agent for a story",
+  },
+  AGENT_STORY_NEW: {
+    id: "work.agent.newStory",
+    vscode: VSCODE_COMMANDS.NEW_STORY_AGENT,
+    description: "Start a new agent for a story",
+  },
+  AGENT_TERMINAL_OPEN: {
+    id: "work.agent.openTerminal",
+    vscode: VSCODE_COMMANDS.OPEN_AGENT_TERMINAL,
+    rpc: RPC_METHODS.OPEN_AGENT_TERMINAL,
+    description: "Open a VS Code terminal attached to an agent tmux session",
+  },
   SETTINGS_OPEN: {
-    id: "atlassian.settings.open",
+    id: "work.settings.open",
     rpc: RPC_METHODS.OPEN_SETTINGS,
-    route: "settings",
+    route: "systemSettings",
   },
   AUTH_SAVE_TOKEN: {
-    id: "atlassian.auth.saveApiToken",
+    id: "work.auth.saveApiToken",
     rpc: RPC_METHODS.SAVE_API_TOKEN,
   },
   AUTH_DISCONNECT: {
-    id: "atlassian.auth.disconnect",
+    id: "work.auth.disconnect",
     rpc: RPC_METHODS.DISCONNECT,
   },
   ISSUE_OPEN_BROWSER: {
-    id: "atlassian.issue.openBrowser",
+    id: "work.issue.openBrowser",
     rpc: RPC_METHODS.OPEN_ISSUE_IN_BROWSER,
   },
 } as const satisfies Record<string, ActionDefinition>;
@@ -154,7 +193,7 @@ const actionsByCommand: Record<string, ActionDefinition> = {};
   }
 });
 
-export const rpcActionId = (method: string): string => `atlassian.rpc.${method}`;
+export const rpcActionId = (method: string): string => `work.rpc.${method}`;
 
 export const getActionByRpcMethod = (method: string): ActionDefinition => {
   return actionsByRpc[method] ?? { id: rpcActionId(method), rpc: method as RpcMethod };
@@ -162,7 +201,7 @@ export const getActionByRpcMethod = (method: string): ActionDefinition => {
 
 export const getActionByVscodeCommand = (command: string): ActionDefinition => {
   return actionsByCommand[command] ?? {
-    id: `atlassian.command.${command}`,
+    id: `work.command.${command}`,
     vscode: command as VscodeCommandId,
   };
 };

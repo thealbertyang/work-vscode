@@ -36,7 +36,7 @@ function SettingsPage() {
     reloadWebviews,
     reinstallExtension,
     restartExtensionHost,
-    startDevTaskTerminal,
+    startTaskTerminal,
     buildExtension,
     buildWebview,
     universalConfig,
@@ -62,7 +62,7 @@ function SettingsPage() {
       ? String((fullConfig as any).dev.wsBridgePort)
       : "";
 
-  const appId = universalConfig?.app.id ?? DEFAULT_UNIVERSAL_CONFIG.app.id ?? "atlassian";
+  const appId = universalConfig?.app.id ?? DEFAULT_UNIVERSAL_CONFIG.app.id ?? "work";
   const intentScheme =
     universalConfig?.app.intentScheme ?? DEFAULT_UNIVERSAL_CONFIG.app.intentScheme ?? DEFAULT_UNIVERSAL_INTENT_SCHEME;
 
@@ -70,10 +70,6 @@ function SettingsPage() {
     const preferred = (routePath: string) => {
       const appPath = `/app/${appId}/route${routePath}`;
       return deepLinkBase ? buildDeepLinkUrl(deepLinkBase, appPath) : "";
-    };
-    const legacy = (routePath: string) => {
-      const deepPath = `/open${routePath}`;
-      return deepLinkBase ? buildDeepLinkUrl(deepLinkBase, deepPath) : "";
     };
     const canonical = (routePath: string) =>
       buildUniversalIntentUrl({ kind: "route", path: routePath }, intentScheme, appId);
@@ -84,9 +80,6 @@ function SettingsPage() {
       canonicalSettings: canonical("/system/settings"),
       canonicalIssue: canonical("/review/issues/CSO-7144"),
       canonicalPlan: canonical("/plan"),
-      legacySettings: legacy("/system/settings"),
-      legacyIssue: legacy("/review/issues/CSO-7144"),
-      legacyPlan: legacy("/plan"),
     };
   }, [appId, deepLinkBase, intentScheme]);
 
@@ -173,7 +166,7 @@ function SettingsPage() {
       label: "Dev Environment",
       actions: [
         { label: "Reload Window", icon: "\u{1F504}", onClick: () => handlers.execCommand("workbench.action.reloadWindow"), tooltip: "Reload the VS Code window (workbench.action.reloadWindow)" },
-        { label: "Terminal", icon: "\u{1F5A5}\uFE0F", onClick: startDevTaskTerminal, tooltip: "Open a dev task terminal in the repo" },
+        { label: "Terminal", icon: "\u{1F5A5}\uFE0F", onClick: startTaskTerminal, tooltip: "Open a dev task terminal in the repo" },
       ],
     },
   ];
@@ -185,12 +178,12 @@ function SettingsPage() {
         <input
           id="baseUrl"
           type="text"
-          placeholder="https://your-domain.atlassian.net"
+          placeholder="https://your-domain.work.net"
           value={form.baseUrl}
           onChange={updateForm("baseUrl")}
           disabled={loading}
         />
-        <div className="input-hint">Example: https://your-domain.atlassian.net</div>
+        <div className="input-hint">Example: https://your-domain.work.net</div>
       </div>
       <div className="row">
         <label htmlFor="email">Atlassian account email</label>
@@ -219,7 +212,7 @@ function SettingsPage() {
         <div className="input-hint">
           Create one at{" "}
           <a
-            href="https://id.atlassian.com/manage-profile/security/api-tokens"
+            href="https://id.work.com/manage-profile/security/api-tokens"
             target="_blank"
             rel="noreferrer"
           >
@@ -364,7 +357,7 @@ function SettingsPage() {
               <div className="note">Connect via VS Code or WS bridge to load config.</div>
             )}
             <div className="note" style={{ marginBottom: 8 }}>
-              Snapshot is written automatically to <code>_agents/app-global-state.json</code>.
+              Snapshot is written automatically to <code>.claude/app-global-state.json</code>.
             </div>
             {fullConfig && (
               <pre className="code-block" style={{ maxHeight: 480, overflow: "auto", whiteSpace: "pre-wrap" }}>
@@ -452,20 +445,6 @@ function SettingsPage() {
               </li>
               <li>
                 Plan: <code>{deepLinkExamples.canonicalPlan || "\u2014"}</code>
-              </li>
-            </ul>
-            <div className="section-heading" style={{ marginTop: 12 }}>
-              Legacy deep link examples (<code>/open</code>, deprecated)
-            </div>
-            <ul className="list">
-              <li>
-                Settings: <code>{deepLinkExamples.legacySettings || "\u2014"}</code>
-              </li>
-              <li>
-                Issue: <code>{deepLinkExamples.legacyIssue || "\u2014"}</code>
-              </li>
-              <li>
-                Plan: <code>{deepLinkExamples.legacyPlan || "\u2014"}</code>
               </li>
             </ul>
           </div>

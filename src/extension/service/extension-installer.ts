@@ -1,8 +1,9 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import * as vscode from "vscode";
+import { APP_NAME } from "../../shared/app-identity";
 
 const COMMAND = "bun run install:ext";
-const OUTPUT_CHANNEL_NAME = "Atlassian Extension Install";
+const OUTPUT_CHANNEL_NAME = `${APP_NAME} Extension Install`;
 const FORCE_KILL_TIMEOUT_MS = 2000;
 
 export class ExtensionInstaller implements vscode.Disposable {

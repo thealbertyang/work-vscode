@@ -5,8 +5,9 @@ import { DEFAULT_WS_BRIDGE_HOST, DEFAULT_WS_BRIDGE_PORT, WS_BRIDGE_TOKEN_KEY } f
 import {
   getApiTokenConfig,
   getApiTokenConfigSource,
-} from "../providers/data/atlassian/atlassianConfig";
+} from "../providers/data/jira/jiraConfig";
 import { SETTINGS_KEYS, SETTINGS_SECTION } from "../../shared/contracts";
+import { buildEnvKeys, firstEnvValue } from "../../shared/app-identity";
 import type { HandlerDependencies } from "./types";
 
 type ConfigDependencies = Pick<
@@ -75,6 +76,18 @@ const listFiles = (dir: string, ext: string): string[] => {
   }
 };
 
+const BASE_URL_ENV_KEYS = buildEnvKeys("BASE_URL", ["JIRA_URL"]);
+const EMAIL_ENV_KEYS = buildEnvKeys("EMAIL", ["JIRA_USER_EMAIL"]);
+const API_TOKEN_ENV_KEYS = buildEnvKeys("API_TOKEN", ["JIRA_API_TOKEN"]);
+const WEBVIEW_SERVER_URL_ENV_KEYS = buildEnvKeys("WEBVIEW_SERVER_URL");
+const WEBVIEW_PATH_ENV_KEYS = buildEnvKeys("WEBVIEW_PATH");
+const DOCS_PATH_ENV_KEYS = buildEnvKeys("DOCS_PATH");
+const WEBVIEW_PORT_ENV_KEYS = buildEnvKeys("WEBVIEW_PORT");
+const WS_BRIDGE_TOKEN_ENV_KEYS = buildEnvKeys("WS_BRIDGE_TOKEN");
+const WS_BRIDGE_ORIGINS_ENV_KEYS = buildEnvKeys("WS_BRIDGE_ORIGINS");
+const WS_BRIDGE_HOST_ENV_KEYS = buildEnvKeys("WS_BRIDGE_HOST");
+const WS_BRIDGE_PORT_ENV_KEYS = buildEnvKeys("WS_BRIDGE_PORT");
+
 export const createConfigHandlers = ({
   context,
   storage,
@@ -107,11 +120,18 @@ export const createConfigHandlers = ({
     // Read env vars relevant to the extension
     const envVars: Record<string, string> = {};
     const envKeys = [
-      "JIRA_URL", "JIRA_USER_EMAIL", "JIRA_API_TOKEN", "JIRA_JQL",
-      "ATLASSIAN_BASE_URL", "ATLASSIAN_EMAIL", "ATLASSIAN_API_TOKEN",
-      "ATLASSIAN_WEBVIEW_SERVER_URL", "ATLASSIAN_WEBVIEW_PATH",
-      "ATLASSIAN_DOCS_PATH", "ATLASSIAN_WEBVIEW_PORT",
-      "ATLASSIAN_WS_BRIDGE_TOKEN", "ATLASSIAN_WS_BRIDGE_ORIGINS",
+      ...BASE_URL_ENV_KEYS,
+      ...EMAIL_ENV_KEYS,
+      ...API_TOKEN_ENV_KEYS,
+      "JIRA_JQL",
+      ...WEBVIEW_SERVER_URL_ENV_KEYS,
+      ...WEBVIEW_PATH_ENV_KEYS,
+      ...DOCS_PATH_ENV_KEYS,
+      ...WEBVIEW_PORT_ENV_KEYS,
+      ...WS_BRIDGE_TOKEN_ENV_KEYS,
+      ...WS_BRIDGE_ORIGINS_ENV_KEYS,
+      ...WS_BRIDGE_HOST_ENV_KEYS,
+      ...WS_BRIDGE_PORT_ENV_KEYS,
     ];
     for (const key of envKeys) {
       const value = process.env[key];
@@ -125,15 +145,15 @@ export const createConfigHandlers = ({
       }
     }
 
-    // Check _agents directory
+    // Check .claude directory
     const workspaceFolder =
       workspace.getWorkspaceFolder(Uri.file(context.extensionPath)) ??
       workspace.workspaceFolders?.[0];
     const wsRoot = workspaceFolder?.uri.fsPath ?? context.extensionPath;
-    const agentsDir = path.join(wsRoot, "_agents");
+    const agentsDir = path.join(wsRoot, ".claude");
     const plansDir = path.join(agentsDir, "plans");
-    const docsDir = existsSync(path.join(agentsDir, "docs"))
-      ? path.join(agentsDir, "docs")
+    const docsDir = existsSync(path.join(wsRoot, "docs", "agents"))
+      ? path.join(wsRoot, "docs", "agents")
       : path.join(wsRoot, "docs");
     const runbooksDir = existsSync(path.join(agentsDir, "runbooks"))
       ? path.join(agentsDir, "runbooks")
@@ -150,14 +170,15 @@ export const createConfigHandlers = ({
     );
 
     const wsBridgeToken =
-      (process.env.ATLASSIAN_WS_BRIDGE_TOKEN ?? "").trim() ||
+      firstEnvValue(process.env, WS_BRIDGE_TOKEN_ENV_KEYS) ||
       (storage.getGlobalState<string>(WS_BRIDGE_TOKEN_KEY) ?? "").trim() ||
       undefined;
 
     const wsBridgeHost =
-      (process.env.ATLASSIAN_WS_BRIDGE_HOST ?? DEFAULT_WS_BRIDGE_HOST).trim() || DEFAULT_WS_BRIDGE_HOST;
+      (firstEnvValue(process.env, WS_BRIDGE_HOST_ENV_KEYS) || DEFAULT_WS_BRIDGE_HOST).trim() ||
+      DEFAULT_WS_BRIDGE_HOST;
     const wsBridgePort = (() => {
-      const raw = (process.env.ATLASSIAN_WS_BRIDGE_PORT ?? "").trim();
+      const raw = firstEnvValue(process.env, WS_BRIDGE_PORT_ENV_KEYS);
       const parsed = raw ? Number.parseInt(raw, 10) : NaN;
       if (Number.isFinite(parsed) && parsed > 0 && parsed < 65536) {
         return parsed;
@@ -167,8 +188,8 @@ export const createConfigHandlers = ({
 
     return {
       app: {
-        id: pkg.name || "atlassian-sprint-view",
-        name: pkg.displayName || "Atlassian Sprint",
+        id: pkg.name || "work",
+        name: pkg.displayName || "Work",
         version: pkg.version || "0.0.0",
         namespace: SETTINGS_SECTION,
         extensionPath: context.extensionPath,
@@ -194,18 +215,18 @@ export const createConfigHandlers = ({
       },
       env: envVars,
       agents: {
-        configDir: "_agents",
-        plansDir: "_agents/plans",
+        configDir: ".claude",
+        plansDir: ".claude/plans",
         plansCount,
         hasAppConfig: existsSync(path.join(agentsDir, "app.config.toml")),
       },
       ipc: {
-        commands: ["atlassian.route.navigate", "atlassian.webview.refresh"],
+        commands: ["work.route.navigate", "work.webview.refresh"],
         events: [
-          "atlassian.webview.ready",
-          "atlassian.route.changed",
-          "atlassian.ui.action",
-          "atlassian.ui.event",
+          "work.webview.ready",
+          "work.route.changed",
+          "work.ui.action",
+          "work.ui.event",
         ],
       },
       universal: {

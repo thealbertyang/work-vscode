@@ -1,12 +1,23 @@
 import path from "path";
 import { ConfigurationTarget, Uri, window, workspace } from "vscode";
-import { parseEnvFile } from "../providers/data/atlassian/atlassianConfig";
+import { parseEnvFile } from "../providers/data/jira/jiraConfig";
 import { MASKED_SECRET } from "../constants";
 import { openExtensionSettings } from "../util/open-extension-settings";
 import { SETTINGS_KEYS } from "../../shared/contracts";
+import { buildEnvKeys } from "../../shared/app-identity";
 import type { HandlerDependencies } from "./types";
 
 type SettingsDependencies = Pick<HandlerDependencies, "context" | "storage" | "client">;
+
+const BASE_URL_ENV_KEYS = buildEnvKeys("BASE_URL", ["JIRA_URL"]);
+const EMAIL_ENV_KEYS = buildEnvKeys("EMAIL", ["JIRA_USER_EMAIL"]);
+const API_TOKEN_ENV_KEYS = buildEnvKeys("API_TOKEN", ["JIRA_API_TOKEN"]);
+const WEBVIEW_SERVER_URL_ENV_KEYS = buildEnvKeys("WEBVIEW_SERVER_URL");
+const WEBVIEW_PATH_ENV_KEYS = buildEnvKeys("WEBVIEW_PATH");
+const DOCS_PATH_ENV_KEYS = buildEnvKeys("DOCS_PATH");
+
+const firstPresentKey = (env: Record<string, string>, keys: readonly string[]): string | null =>
+  keys.find((key) => Boolean(env[key])) ?? null;
 
 export const createSettingsHandlers = ({ context, storage, client }: SettingsDependencies) => ({
   openSettings: async () => {
@@ -32,9 +43,9 @@ export const createSettingsHandlers = ({ context, storage, client }: SettingsDep
 
     const updates: Array<{ key: string; value: unknown; env: string; sensitive?: boolean }> = [];
 
-    const baseUrlEnv = envData.JIRA_URL ? "JIRA_URL" : envData.ATLASSIAN_BASE_URL ? "ATLASSIAN_BASE_URL" : null;
-    const emailEnv = envData.JIRA_USER_EMAIL ? "JIRA_USER_EMAIL" : envData.ATLASSIAN_EMAIL ? "ATLASSIAN_EMAIL" : null;
-    const apiTokenEnv = envData.JIRA_API_TOKEN ? "JIRA_API_TOKEN" : envData.ATLASSIAN_API_TOKEN ? "ATLASSIAN_API_TOKEN" : null;
+    const baseUrlEnv = firstPresentKey(envData, BASE_URL_ENV_KEYS);
+    const emailEnv = firstPresentKey(envData, EMAIL_ENV_KEYS);
+    const apiTokenEnv = firstPresentKey(envData, API_TOKEN_ENV_KEYS);
 
     if (baseUrlEnv) {
       updates.push({ key: SETTINGS_KEYS.BASE_URL, value: envData[baseUrlEnv], env: baseUrlEnv });
@@ -49,23 +60,34 @@ export const createSettingsHandlers = ({ context, storage, client }: SettingsDep
       updates.push({ key: SETTINGS_KEYS.JQL, value: envData.JIRA_JQL, env: "JIRA_JQL" });
     }
 
-    if (envData.ATLASSIAN_WEBVIEW_SERVER_URL) {
+    const webviewServerEnv = firstPresentKey(envData, WEBVIEW_SERVER_URL_ENV_KEYS);
+    if (webviewServerEnv) {
       updates.push({
         key: SETTINGS_KEYS.WEBVIEW_SERVER_URL,
-        value: envData.ATLASSIAN_WEBVIEW_SERVER_URL,
-        env: "ATLASSIAN_WEBVIEW_SERVER_URL",
+        value: envData[webviewServerEnv],
+        env: webviewServerEnv,
       });
     }
-    if (envData.ATLASSIAN_WEBVIEW_PATH) {
-      updates.push({ key: SETTINGS_KEYS.WEBVIEW_PATH, value: envData.ATLASSIAN_WEBVIEW_PATH, env: "ATLASSIAN_WEBVIEW_PATH" });
+    const webviewPathEnv = firstPresentKey(envData, WEBVIEW_PATH_ENV_KEYS);
+    if (webviewPathEnv) {
+      updates.push({
+        key: SETTINGS_KEYS.WEBVIEW_PATH,
+        value: envData[webviewPathEnv],
+        env: webviewPathEnv,
+      });
     }
-    if (envData.ATLASSIAN_DOCS_PATH) {
-      updates.push({ key: SETTINGS_KEYS.DOCS_PATH, value: envData.ATLASSIAN_DOCS_PATH, env: "ATLASSIAN_DOCS_PATH" });
+    const docsPathEnv = firstPresentKey(envData, DOCS_PATH_ENV_KEYS);
+    if (docsPathEnv) {
+      updates.push({
+        key: SETTINGS_KEYS.DOCS_PATH,
+        value: envData[docsPathEnv],
+        env: docsPathEnv,
+      });
     }
 
     if (updates.length === 0) {
       window.showWarningMessage(
-        `No Atlassian settings found in ${path.basename(envLocalPath)} or ${path.basename(
+        `No workspace/Jira settings found in ${path.basename(envLocalPath)} or ${path.basename(
           envPath,
         )}.`,
       );
