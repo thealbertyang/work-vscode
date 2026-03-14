@@ -237,6 +237,16 @@ export function revealAgentSession(input: AgentSessionRevealInput): AgentTermina
     return { ok: true, title: exact.name, reused: true };
   }
 
+  // Fallback: match by story substring (handles tmux session names vs terminal titles)
+  if (parsed.story) {
+    const storyLower = parsed.story.toLowerCase();
+    const storyMatch = window.terminals.find((t) => t.name.toLowerCase().includes(storyLower));
+    if (storyMatch) {
+      storyMatch.show(false);
+      return { ok: true, title: storyMatch.name, reused: true };
+    }
+  }
+
   const root = workspaceRoot();
   if (!root) {
     return { ok: false, error: "no_workspace" };
