@@ -622,12 +622,12 @@ function App({ children }: AppProps) {
     }
   }, [router]);
 
-  const openPaletteFromUrlBar = useCallback(
+  const openPaletteFromShell = useCallback(
     (query?: string) => {
       window.dispatchEvent(
         new CustomEvent("work:commandPalette", {
           detail: {
-            source: "urlbar",
+            source: "shell",
             query: typeof query === "string" ? query : "",
             returnFocus: true,
           },
@@ -786,11 +786,10 @@ function App({ children }: AppProps) {
         activeSection={currentSectionId}
         currentSection={currentSection}
         currentPath={pathname}
-        deepLinkUrl={deepLinkUrl}
         onNavigate={navigateTo}
         onCopy={copyDeepLink}
         onRefresh={refreshPage}
-        onOpenPalette={openPaletteFromUrlBar}
+        onOpenPalette={openPaletteFromShell}
         canGoBack={navHistory.canGoBack}
         canGoForward={navHistory.canGoForward}
         onGoBack={handleGoBack}
@@ -839,7 +838,6 @@ function App({ children }: AppProps) {
         shellLabel={shellLabel}
         currentSection={currentSectionId}
         currentStage={currentStage}
-        devMode={state.devMode}
         lastExtensionBuildAt={state.dev?.lastExtensionBuildAt}
         isWebview={isWebview}
         onNavigate={navigateTo}

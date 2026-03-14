@@ -9,7 +9,6 @@ type ShellLayoutProps = {
   activeSection: string;
   currentSection: ShellSection | undefined;
   currentPath: string;
-  deepLinkUrl: string;
   onNavigate: (path: string) => void;
   onCopy: () => void;
   onRefresh?: () => void;
@@ -28,7 +27,6 @@ export function ShellLayout({
   activeSection,
   currentSection,
   currentPath,
-  deepLinkUrl,
   onNavigate,
   onCopy,
   onRefresh,
@@ -46,9 +44,8 @@ export function ShellLayout({
       <ShellRail sections={sections} activeSection={activeSection} onNavigate={onNavigate} />
       <div className="shell-content">
         <UrlBar
-          deepLinkUrl={deepLinkUrl}
+          currentPath={currentPath}
           sectionIcon={currentSection?.icon}
-          onNavigate={onNavigate}
           onCopy={onCopy}
           onRefresh={onRefresh}
           onOpenPalette={onOpenPalette}
