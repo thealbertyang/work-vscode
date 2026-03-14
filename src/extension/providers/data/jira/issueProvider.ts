@@ -527,13 +527,11 @@ export class AgentSessionItem extends vscode.TreeItem {
     ]
       .filter(Boolean)
       .join(" · ");
-    if (session.source === "tmux") {
-      this.command = {
-        command: VSCODE_COMMANDS.ATTACH_AGENT_SESSION,
-        title: "Attach Agent Session",
-        arguments: [session.sessionName],
-      };
-    }
+    this.command = {
+      command: VSCODE_COMMANDS.ATTACH_AGENT_SESSION,
+      title: session.source === "terminal" ? "Reveal Agent Terminal" : "Attach Agent Session",
+      arguments: [session],
+    };
   }
 }
 

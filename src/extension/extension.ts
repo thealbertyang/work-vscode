@@ -14,7 +14,7 @@ import { LocalStoryReader } from "./providers/data/local/local-story-reader";
 import { StorageService } from "./service/storage-service";
 import { WorkspaceUriHandler } from "./service/uri-handler";
 import { WorkMcpEventListener } from "./service/work-mcp-events";
-import { buildAgentTerminalTitle, openOrReuseAgentTerminal, launchAgentDirectly } from "./service/agent-terminal";
+import { buildAgentTerminalTitle, openOrReuseAgentTerminal, launchAgentDirectly, revealAgentSession } from "./service/agent-terminal";
 import { spawnAgentViaWorkMcp } from "./service/work-mcp-client";
 import { VSCODE_COMMANDS } from "../shared/contracts";
 
@@ -24,28 +24,10 @@ const LEGACY_START_TASK_TERMINAL_COMMANDS = [
 ] as const;
 
 type CommandHandler = (...args: unknown[]) => unknown;
-const ATTACH_SHELL = "/bin/sh";
 
 function workspaceRoot(): string | null {
   const folder = vscode.workspace.workspaceFolders?.[0];
   return folder?.uri.fsPath ?? null;
-}
-
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-function buildTmuxAttachShellCommand(sessionName: string): string {
-  const quotedSession = shellQuote(sessionName);
-  const missingMessage = shellQuote(`tmux session not found: ${sessionName}`);
-  return [
-    `if tmux has-session -t ${quotedSession} 2>/dev/null; then`,
-    `  exec tmux attach-session -t ${quotedSession};`,
-    "else",
-    `  printf '%s\\n' ${missingMessage};`,
-    "  exec zsh -i;",
-    "fi",
-  ].join(" ");
 }
 
 function sanitizeSegment(value: string): string {
@@ -90,6 +72,17 @@ function extractSessionName(value: unknown): string | null {
 
   const nested = (value as { session?: { sessionName?: unknown } }).session?.sessionName;
   return typeof nested === "string" ? nested : null;
+}
+
+function extractSessionSource(value: unknown): "tmux" | "terminal" | undefined {
+  if (value instanceof AgentSessionItem) return value.session.source;
+  if (!value || typeof value !== "object") return undefined;
+
+  const direct = (value as { source?: unknown }).source;
+  if (direct === "tmux" || direct === "terminal") return direct;
+
+  const nested = (value as { session?: { source?: unknown } }).session?.source;
+  return nested === "tmux" || nested === "terminal" ? nested : undefined;
 }
 
 function normalizeStringField(value: unknown): string | undefined {
@@ -273,14 +266,17 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.window.showWarningMessage("Select an agent session to attach.");
       return;
     }
-    const rootPath = workspaceRoot() ?? undefined;
-    const terminal = vscode.window.createTerminal({
-      name: `Agent: ${sessionName.replace(/^agents-/, "")}`,
-      cwd: rootPath,
-      shellPath: ATTACH_SHELL,
-      shellArgs: ["-c", buildTmuxAttachShellCommand(sessionName)],
+    const result = revealAgentSession({
+      sessionName,
+      source: extractSessionSource(input),
     });
-    terminal.show(true);
+    if (!result.ok) {
+      vscode.window.showWarningMessage(
+        result.error === "terminal_not_found"
+          ? "Agent terminal is no longer running."
+          : "Unable to reveal agent session.",
+      );
+    }
   });
   registerCommandSafely(context, VSCODE_COMMANDS.START_STORY_AGENT, async (input?: unknown) => {
     const ready = requireProvider();

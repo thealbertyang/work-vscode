@@ -1,4 +1,5 @@
 import { window, workspace, ThemeColor, ThemeIcon, Uri } from "vscode";
+import { parseAgentSessionName, type AgentSessionSource } from "./agent-session";
 
 export type AgentTerminalInput = {
   tool?: string;
@@ -15,6 +16,11 @@ export type AgentTerminalResult = {
   error?: string;
 };
 
+export type AgentSessionRevealInput = {
+  sessionName: string;
+  source?: AgentSessionSource;
+};
+
 function workspaceRoot(): string | null {
   const folder = workspace.workspaceFolders?.[0];
   return folder?.uri.fsPath ?? null;
@@ -22,6 +28,22 @@ function workspaceRoot(): string | null {
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function buildTmuxAttachCommand(sessionName: string, windowIndex?: string): string {
+  const quotedSession = shellQuote(sessionName);
+  const quotedWindow = windowIndex ? shellQuote(`${sessionName}:${windowIndex}`) : null;
+  const missingMessage = shellQuote(`tmux session not found: ${sessionName}`);
+  return [
+    `if tmux has-session -t ${quotedSession} 2>/dev/null; then`,
+    quotedWindow
+      ? `  exec tmux attach-session -t ${quotedSession} \\; select-window -t ${quotedWindow};`
+      : `  exec tmux attach-session -t ${quotedSession};`,
+    "else",
+    `  printf '%s\\n' ${missingMessage};`,
+    "  exec zsh -i;",
+    "fi",
+  ].join(" ");
 }
 
 function slugifySession(tool: string, role: string, story: string): string {
@@ -61,13 +83,21 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
   }
 
   const title = buildAgentTerminalTitle(input);
+  const exact = window.terminals.find((terminal) =>
+    terminal.name === title || terminal.name.startsWith(`${title} | `),
+  );
+  if (exact) {
+    exact.show(true);
+    return { ok: true, title: exact.name, reused: true };
+  }
+
   const story = input.story ?? "work";
   const storyLower = story.toLowerCase();
 
   // Find all terminals matching this story (any tool/role)
-  const storyTerminals = window.terminals.filter(
-    (t) => t.name.toLowerCase().includes(storyLower),
-  );
+  const storyTerminals = input.session
+    ? []
+    : window.terminals.filter((t) => t.name.toLowerCase().includes(storyLower));
 
   if (storyTerminals.length > 0) {
     // Cycle: find the one after the last shown terminal
@@ -103,6 +133,68 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
   terminal.sendText(cmd, true);
 
   return { ok: true, title, reused: false };
+}
+
+export function revealAgentSession(input: AgentSessionRevealInput): AgentTerminalResult {
+  const source = input.source ?? "tmux";
+  const parsed = parseAgentSessionName(input.sessionName);
+
+  if (source === "terminal") {
+    const existing = window.terminals.find((terminal) => terminal.name === input.sessionName);
+    if (existing) {
+      existing.show(true);
+      return { ok: true, title: existing.name, reused: true };
+    }
+
+    if (!parsed) {
+      return { ok: false, error: "terminal_not_found" };
+    }
+
+    const fallback = window.terminals.find((terminal) =>
+      terminal.name === buildAgentTerminalTitle(parsed)
+      || terminal.name.startsWith(`${buildAgentTerminalTitle(parsed)} | `),
+    );
+    if (fallback) {
+      fallback.show(true);
+      return { ok: true, title: fallback.name, reused: true };
+    }
+
+    return { ok: false, error: "terminal_not_found" };
+  }
+
+  if (!parsed) {
+    return { ok: false, error: "unrecognized_session" };
+  }
+
+  const exact = window.terminals.find((terminal) =>
+    terminal.name === buildAgentTerminalTitle(parsed)
+    || terminal.name.startsWith(`${buildAgentTerminalTitle(parsed)} | `),
+  );
+  if (exact) {
+    exact.show(true);
+    return { ok: true, title: exact.name, reused: true };
+  }
+
+  const root = workspaceRoot();
+  if (!root) {
+    return { ok: false, error: "no_workspace" };
+  }
+
+  const tool = parsed.tool.toLowerCase();
+  const terminal = window.createTerminal({
+    name: buildAgentTerminalTitle(parsed),
+    cwd: root,
+    iconPath: new ThemeIcon("hubot", TOOL_COLORS[tool] ? new ThemeColor(TOOL_COLORS[tool]) : undefined),
+    color: TOOL_COLORS[tool] ? new ThemeColor(TOOL_COLORS[tool]) : undefined,
+    env: {
+      WORK_STORY: parsed.story,
+      WORK_AGENT_ROLE: parsed.role,
+      AGENT_TOOL: tool,
+    },
+  });
+  terminal.show(true);
+  terminal.sendText(buildTmuxAttachCommand(input.sessionName, parsed.windowIndex), true);
+  return { ok: true, title: terminal.name, reused: false };
 }
 
 /**
