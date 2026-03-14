@@ -101,19 +101,24 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
     .sort((a, b) => a.name.localeCompare(b.name));
 
   if (storyTerminals.length > 0) {
-    // First call: show the first terminal. Subsequent calls: cycle forward.
-    const active = window.activeTerminal;
-    const isStoryActive = active && storyTerminals.some((t) => t === active);
+    // Cycle by finding the terminal AFTER the currently active one
+    const activeIdx = window.activeTerminal
+      ? storyTerminals.indexOf(window.activeTerminal)
+      : -1;
+    // If active terminal is one of ours, pick the next. Otherwise pick the first.
+    const targetIdx = activeIdx >= 0 ? (activeIdx + 1) % storyTerminals.length : 0;
+    const target = storyTerminals[targetIdx];
 
-    if (isStoryActive && storyTerminals.length > 1) {
-      // Already on a story terminal — cycle to next
-      commands.executeCommand("workbench.action.terminal.focusNext");
-      return { ok: true, title: "next", reused: true };
+    // Focus by navigating: first go to terminal 1, then step forward to target
+    const allTerminals = window.terminals;
+    const globalIdx = allTerminals.indexOf(target);
+    if (globalIdx >= 0 && globalIdx < 9) {
+      // workbench.action.terminal.focusAtIndex1 through focusAtIndex9
+      commands.executeCommand(`workbench.action.terminal.focusAtIndex${globalIdx + 1}`);
+    } else {
+      target.show(true);
     }
-
-    // Not on a story terminal — jump to the first one
-    storyTerminals[0].show(true);
-    return { ok: true, title: storyTerminals[0].name, reused: true };
+    return { ok: true, title: target.name, reused: true };
   }
 
   const tool = (input.tool ?? "claude").toLowerCase();
