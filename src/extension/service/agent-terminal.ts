@@ -1,4 +1,4 @@
-import { window, workspace } from "vscode";
+import { window, workspace, ThemeColor, ThemeIcon, Uri } from "vscode";
 
 export type AgentTerminalInput = {
   tool?: string;
@@ -24,31 +24,15 @@ function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
-function buildTmuxAttachCommand(session: string, windowIndex?: string): string {
-  const quotedSession = shellQuote(session);
-  const missingMessage = shellQuote(`tmux session not found: ${session}`);
-  if (!windowIndex) {
-    return [
-      `if tmux has-session -t ${quotedSession} 2>/dev/null; then`,
-      `  exec tmux attach-session -t ${quotedSession};`,
-      "else",
-      `  printf '%s\\n' ${missingMessage};`,
-      "  exec zsh -i;",
-      "fi",
-    ].join(" ");
-  }
-
-  const target = `${session}:${windowIndex}`;
-  const quotedTarget = shellQuote(target);
-  return [
-    `if tmux has-session -t ${quotedSession} 2>/dev/null; then`,
-    `  tmux attach-session -t ${quotedSession} \\; select-window -t ${quotedTarget};`,
-    "else",
-    `  printf '%s\\n' ${missingMessage};`,
-    "  exec zsh -i;",
-    "fi",
-  ].join(" ");
+function slugifySession(tool: string, role: string, story: string): string {
+  return `agents-${tool}-${role}-${story}`
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
 }
+
 
 export function buildAgentTerminalTitle(input: AgentTerminalInput): string {
   const tool = (input.tool ?? "claude").toUpperCase();
@@ -61,11 +45,14 @@ export function buildAgentTerminalTitle(input: AgentTerminalInput): string {
   return parts.join(" | ");
 }
 
-/** Color map for terminal tab icons by tool. */
+/** Terminal tab styling — matches sidebar agent session icons. */
 const TOOL_COLORS: Record<string, string> = {
-  claude: "terminal.ansiYellow",
-  codex: "terminal.ansiCyan",
+  claude: "charts.green",
+  codex: "charts.blue",
 };
+
+/** Track last focused terminal name per story for round-robin cycling. */
+const lastShownName = new Map<string, string>();
 
 export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTerminalResult {
   const root = workspaceRoot();
@@ -74,22 +61,32 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
   }
 
   const title = buildAgentTerminalTitle(input);
-  const existing = window.terminals.find(
-    (terminal) => terminal.name === title || terminal.name.startsWith(`${title} |`),
+  const story = input.story ?? "work";
+  const storyLower = story.toLowerCase();
+
+  // Find all terminals matching this story (any tool/role)
+  const storyTerminals = window.terminals.filter(
+    (t) => t.name.toLowerCase().includes(storyLower),
   );
-  if (existing) {
-    existing.show(true);
-    return { ok: true, title, reused: true };
+
+  if (storyTerminals.length > 0) {
+    // Cycle: find the one after the last shown terminal
+    const lastName = lastShownName.get(story);
+    const lastIdx = lastName ? storyTerminals.findIndex((t) => t.name === lastName) : -1;
+    const nextIdx = (lastIdx + 1) % storyTerminals.length;
+    const next = storyTerminals[nextIdx];
+    lastShownName.set(story, next.name);
+    next.show(true);
+    return { ok: true, title: next.name, reused: true };
   }
 
   const tool = (input.tool ?? "claude").toLowerCase();
   const role = input.role ?? "worker";
-  const story = input.story ?? "work";
   const terminal = window.createTerminal({
     name: title,
     cwd: root,
-    iconPath: undefined,
-    color: TOOL_COLORS[tool] ? new (require("vscode").ThemeColor)(TOOL_COLORS[tool]) : undefined,
+    iconPath: new ThemeIcon("hubot", TOOL_COLORS[tool] ? new ThemeColor(TOOL_COLORS[tool]) : undefined),
+    color: TOOL_COLORS[tool] ? new ThemeColor(TOOL_COLORS[tool]) : undefined,
     env: {
       WORK_STORY: story,
       WORK_AGENT_ROLE: role,
@@ -98,9 +95,12 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
   });
   terminal.show(true);
 
-  if (input.session) {
-    terminal.sendText(buildTmuxAttachCommand(input.session, input.windowIndex), true);
-  }
+  // Idempotent: attach if session exists, create if not
+  const sessionName = input.session ?? slugifySession(tool, input.role ?? "worker", input.story ?? "work");
+  const s = shellQuote(sessionName);
+  const selectWindow = input.windowIndex ? ` \\; select-window -t ${shellQuote(sessionName + ":" + input.windowIndex)}` : "";
+  const cmd = `tmux new-session -A -s ${s} -c ${shellQuote(root)}${selectWindow}`;
+  terminal.sendText(cmd, true);
 
   return { ok: true, title, reused: false };
 }
@@ -121,7 +121,8 @@ export function launchAgentDirectly(input: AgentTerminalInput): AgentTerminalRes
   const terminal = window.createTerminal({
     name: title,
     cwd: root,
-    color: TOOL_COLORS[tool] ? new (require("vscode").ThemeColor)(TOOL_COLORS[tool]) : undefined,
+    iconPath: new ThemeIcon("hubot", TOOL_COLORS[tool] ? new ThemeColor(TOOL_COLORS[tool]) : undefined),
+    color: TOOL_COLORS[tool] ? new ThemeColor(TOOL_COLORS[tool]) : undefined,
     env: {
       WORK_STORY: story,
       WORK_AGENT_ROLE: input.role ?? "worker",

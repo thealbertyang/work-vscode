@@ -47,6 +47,7 @@ type AgentSession = {
   sessionName: string;
   windows: number;
   attachedClients: number;
+  source: "tmux" | "terminal";
 };
 
 type AgentSessionsLoad = {
@@ -55,6 +56,7 @@ type AgentSessionsLoad = {
 };
 
 type TreeNode =
+  | AgentsRootItem
   | WorkAreaItem
   | IssueItem
   | StoryAgentSummaryItem
@@ -116,6 +118,7 @@ function parseSessions(raw: string): AgentSession[] {
       sessionName: parts[0],
       windows: Number.parseInt(parts[1] ?? "0", 10) || 0,
       attachedClients: Number.parseInt(parts[2] ?? "0", 10) || 0,
+      source: "tmux" as const,
     };
 
     const existing = deduped.get(session.sessionName);
@@ -131,18 +134,55 @@ function parseSessions(raw: string): AgentSession[] {
   return Array.from(deduped.values()).sort(compareSessions);
 }
 
+function parseLiveTerminalSessions(): AgentSession[] {
+  return vscode.window.terminals.flatMap((terminal) => {
+    if (terminal.exitStatus) return [];
+    const runner = extractRunnerFromSession(terminal.name);
+    const workKey = extractWorkKeyFromSession(terminal.name);
+    if (!runner || !workKey) return [];
+
+    return [{
+      sessionName: terminal.name,
+      windows: 1,
+      attachedClients: 1,
+      source: "terminal" as const,
+    }];
+  });
+}
+
+function mergeAgentSessions(tmuxSessions: AgentSession[], terminalSessions: AgentSession[]): AgentSession[] {
+  if (terminalSessions.length === 0) return tmuxSessions;
+
+  const merged = [...tmuxSessions];
+  for (const terminalSession of terminalSessions) {
+    const terminalKey = extractWorkKeyFromSession(terminalSession.sessionName);
+    const terminalRunner = extractRunnerFromSession(terminalSession.sessionName);
+    const hasAttachedTmuxMatch = tmuxSessions.some((tmuxSession) =>
+      tmuxSession.attachedClients > 0
+      && extractWorkKeyFromSession(tmuxSession.sessionName) === terminalKey
+      && extractRunnerFromSession(tmuxSession.sessionName) === terminalRunner
+    );
+    if (!hasAttachedTmuxMatch) {
+      merged.push(terminalSession);
+    }
+  }
+
+  return merged.sort(compareSessions);
+}
+
 async function loadOnlineAgentSessions(): Promise<AgentSessionsLoad> {
+  const terminalSessions = parseLiveTerminalSessions();
   let lastError: unknown;
   for (const candidate of TMUX_BIN_CANDIDATES) {
     try {
       const raw = await runTmuxListSessions(candidate);
-      return { sessions: parseSessions(raw) };
+      return { sessions: mergeAgentSessions(parseSessions(raw), terminalSessions) };
     } catch (error) {
       lastError = error;
     }
   }
   const message = lastError instanceof Error ? lastError.message : "tmux unavailable";
-  return { sessions: [], unavailableReason: message };
+  return { sessions: terminalSessions, unavailableReason: message };
 }
 
 function explorerShowDetachedSessions(): boolean {
@@ -189,6 +229,18 @@ export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode
   }
 
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
+    if (element instanceof AgentsRootItem) {
+      if (element.onlineSessions.length === 0) {
+        const label = element.tmuxUnavailableReason
+          ? `tmux unavailable: ${element.tmuxUnavailableReason}`
+          : element.detachedCount > 0
+            ? `No online agents · ${element.detachedCount} detached`
+            : "No online agents";
+        return [new AgentInfoItem(label)];
+      }
+      return element.onlineSessions.map((session) => new AgentSessionItem(session));
+    }
+
     if (
       element instanceof WorkAreaItem
     ) {
@@ -217,12 +269,11 @@ export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode
       if (element.delegation) {
         children.push(new DelegationInfoItem(element.delegation));
       }
-      if (element.tmuxUnavailableReason) {
-        children.push(new AgentInfoItem(`tmux unavailable: ${element.tmuxUnavailableReason}`));
-        return children;
-      }
       if (element.sessions.length === 0) {
-        children.push(new AgentInfoItem("No agent activity", element.issue, true));
+        const label = element.tmuxUnavailableReason
+          ? `No agent activity · tmux unavailable: ${element.tmuxUnavailableReason}`
+          : "No agent activity";
+        children.push(new AgentInfoItem(label, element.issue, true));
         return children;
       }
       const selection = selectStorySessions(element.sessions);
@@ -329,10 +380,15 @@ export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode
       bucket.rows.sort(sortRows);
     }
 
-    return (["work", "personal"] as const)
+    const rootNodes: TreeNode[] = [
+      new AgentsRootItem(sessionsLoad.sessions, sessionsLoad.unavailableReason),
+      ...( ["work", "personal"] as const)
       .map((area) => grouped.get(area))
       .filter((bucket): bucket is GroupedExplorerRows => Boolean(bucket && bucket.rows.length > 0))
-      .map((bucket) => new WorkAreaItem(bucket.area, bucket.rows, sessionsByStory, sessionsLoad.unavailableReason));
+      .map((bucket) => new WorkAreaItem(bucket.area, bucket.rows, sessionsByStory, sessionsLoad.unavailableReason)),
+    ];
+
+    return rootNodes;
   }
 }
 
@@ -418,6 +474,9 @@ function formatSessionLabel(sessionName: string): string {
 }
 
 function formatSessionDescription(session: AgentSession): string {
+  if (session.source === "terminal") {
+    return "online · direct terminal";
+  }
   const state = session.attachedClients > 0 ? "attached" : "detached";
   const detail = removeKnownParts(session.sessionName);
   const parts = [state, `${session.windows}w`];
@@ -462,14 +521,50 @@ export class AgentSessionItem extends vscode.TreeItem {
     this.contextValue = "workAgentSession";
     this.tooltip = [
       session.sessionName,
+      session.source === "terminal" ? "live VS Code terminal" : null,
       `${session.windows} window${session.windows === 1 ? "" : "s"}`,
       `${session.attachedClients} attached`,
-    ].join(" · ");
-    this.command = {
-      command: VSCODE_COMMANDS.ATTACH_AGENT_SESSION,
-      title: "Attach Agent Session",
-      arguments: [session.sessionName],
-    };
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    if (session.source === "tmux") {
+      this.command = {
+        command: VSCODE_COMMANDS.ATTACH_AGENT_SESSION,
+        title: "Attach Agent Session",
+        arguments: [session.sessionName],
+      };
+    }
+  }
+}
+
+export class AgentsRootItem extends vscode.TreeItem {
+  public readonly onlineSessions: AgentSession[];
+  public readonly detachedCount: number;
+
+  constructor(
+    sessions: AgentSession[],
+    public readonly tmuxUnavailableReason?: string,
+  ) {
+    super("Agents", vscode.TreeItemCollapsibleState.Expanded);
+    this.onlineSessions = sessions.filter((session) => session.attachedClients > 0);
+    this.detachedCount = Math.max(0, sessions.length - this.onlineSessions.length);
+    this.description = this.onlineSessions.length > 0 || this.detachedCount > 0
+      ? this.detachedCount > 0
+        ? `${this.onlineSessions.length} online · ${this.detachedCount} detached`
+        : `${this.onlineSessions.length} online`
+      : tmuxUnavailableReason
+        ? "unavailable"
+        : "0 online";
+    this.iconPath = new vscode.ThemeIcon(
+      "hubot",
+      new vscode.ThemeColor(this.onlineSessions.length > 0 ? "charts.green" : "foreground"),
+    );
+    this.contextValue = "workAgents";
+    this.tooltip = this.onlineSessions.length > 0 || this.detachedCount > 0
+      ? `${this.onlineSessions.length} online, ${this.detachedCount} detached`
+      : tmuxUnavailableReason
+        ? `Agents unavailable · ${tmuxUnavailableReason}`
+        : "No detected agent sessions";
   }
 }
 
