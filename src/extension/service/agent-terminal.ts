@@ -1,4 +1,5 @@
-import { window, workspace, commands, ThemeColor, ThemeIcon, Uri } from "vscode";
+import { window, workspace, ThemeColor, ThemeIcon } from "vscode";
+import type { Terminal } from "vscode";
 import { parseAgentSessionName, type AgentSessionSource } from "./agent-session";
 
 export type AgentTerminalInput = {
@@ -76,32 +77,66 @@ export function buildAgentTerminalTitle(input: AgentTerminalInput): string {
   return parts.join(" | ");
 }
 
-/**
- * Focus a specific terminal tab.
- *
- * `Terminal.show(true)` is a no-op when the terminal panel is already visible
- * because `preserveFocus=true` prevents VS Code from switching the active tab.
- * Using `show(false)` reliably selects the terminal and takes keyboard focus.
- * For indices 1–9 we also invoke the focusAtIndex command as a belt-and-suspenders
- * measure since it targets the tab directly by position.
- */
-function focusTerminal(terminal: ReturnType<typeof window.createTerminal>): void {
-  const globalIdx = window.terminals.indexOf(terminal);
-  if (globalIdx >= 0 && globalIdx < 9) {
-    commands.executeCommand(`workbench.action.terminal.focusAtIndex${globalIdx + 1}`);
-  } else {
-    terminal.show(false);
-  }
-}
-
 /** Terminal tab styling — matches sidebar agent session icons. */
 const TOOL_COLORS: Record<string, string> = {
   claude: "charts.green",
   codex: "charts.blue",
 };
 
-/** Track cycling counter per story — stable across terminal reordering. */
-const cycleCounter = new Map<string, number>();
+/**
+ * Session-scoped terminal registry.
+ *
+ * Tracks terminals created for each story in creation order so cycling is
+ * stable and independent of `window.activeTerminal` (which does not update
+ * synchronously after `terminal.show(false)`).
+ *
+ * `storyTerminals`  — ordered list of live terminals per story key
+ * `storyCursor`     — next index to show for a given story key
+ *
+ * Disposed terminals are pruned via `window.onDidCloseTerminal`.
+ */
+const storyTerminals = new Map<string, Terminal[]>();
+const storyCursor = new Map<string, number>();
+
+window.onDidCloseTerminal((closed) => {
+  for (const [key, terminals] of storyTerminals) {
+    const filtered = terminals.filter((t) => t !== closed);
+    if (filtered.length !== terminals.length) {
+      if (filtered.length === 0) {
+        storyTerminals.delete(key);
+        storyCursor.delete(key);
+      } else {
+        storyTerminals.set(key, filtered);
+        // Clamp cursor so it stays in bounds after removal.
+        const cursor = storyCursor.get(key) ?? 0;
+        storyCursor.set(key, cursor % filtered.length);
+      }
+    }
+  }
+});
+
+function storyKey(story: string): string {
+  return story.toLowerCase();
+}
+
+function registerTerminalForStory(key: string, terminal: Terminal): void {
+  const list = storyTerminals.get(key) ?? [];
+  list.push(terminal);
+  storyTerminals.set(key, list);
+}
+
+/**
+ * Cycle to the next terminal for a story and show it.
+ * Returns the terminal that was shown.
+ */
+function cycleToNextTerminal(key: string): Terminal {
+  const list = storyTerminals.get(key)!;
+  const cursor = storyCursor.get(key) ?? 0;
+  const target = list[cursor % list.length];
+  storyCursor.set(key, (cursor + 1) % list.length);
+  target.show(false);
+  return target;
+}
 
 export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTerminalResult {
   const root = workspaceRoot();
@@ -109,28 +144,28 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
     return { ok: false, error: "no_workspace" };
   }
 
-  const title = buildAgentTerminalTitle(input);
   const story = input.story ?? "work";
-  const storyLower = story.toLowerCase();
+  const key = storyKey(story);
 
-  // Collect all terminals for this story, sorted by name for stable order
-  const storyTerminals = window.terminals
-    .filter((t) => t.name.toLowerCase().includes(storyLower))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  // Prune any terminals that were closed outside our listener (belt-and-suspenders).
+  const knownLive = (storyTerminals.get(key) ?? []).filter((t) =>
+    window.terminals.includes(t),
+  );
+  if (knownLive.length !== (storyTerminals.get(key) ?? []).length) {
+    storyTerminals.set(key, knownLive);
+    if (knownLive.length === 0) {
+      storyCursor.delete(key);
+    } else {
+      storyCursor.set(key, (storyCursor.get(key) ?? 0) % knownLive.length);
+    }
+  }
 
-  if (storyTerminals.length > 0) {
-    // Cycle by finding the terminal AFTER the currently active one
-    const activeIdx = window.activeTerminal
-      ? storyTerminals.indexOf(window.activeTerminal)
-      : -1;
-    // If active terminal is one of ours, pick the next. Otherwise pick the first.
-    const targetIdx = activeIdx >= 0 ? (activeIdx + 1) % storyTerminals.length : 0;
-    const target = storyTerminals[targetIdx];
-
-    focusTerminal(target);
+  if (knownLive.length > 0) {
+    const target = cycleToNextTerminal(key);
     return { ok: true, title: target.name, reused: true };
   }
 
+  const title = buildAgentTerminalTitle(input);
   const tool = (input.tool ?? "claude").toLowerCase();
   const role = input.role ?? "worker";
   const terminal = window.createTerminal({
@@ -144,6 +179,7 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
       AGENT_TOOL: tool,
     },
   });
+  registerTerminalForStory(key, terminal);
   terminal.show(false);
 
   // Idempotent: attach if session exists, create if not
@@ -161,10 +197,10 @@ export function revealAgentSession(input: AgentSessionRevealInput): AgentTermina
   const parsed = parseAgentSessionName(input.sessionName);
 
   if (source === "terminal") {
-    // For live terminal sessions, find by exact name and focus it.
+    // For live terminal sessions, find by exact name and show it.
     const existing = window.terminals.find((terminal) => terminal.name === input.sessionName);
     if (existing) {
-      focusTerminal(existing);
+      existing.show(false);
       return { ok: true, title: existing.name, reused: true };
     }
 
@@ -179,7 +215,7 @@ export function revealAgentSession(input: AgentSessionRevealInput): AgentTermina
       || terminal.name.startsWith(`${titleBase} | `),
     );
     if (fallback) {
-      focusTerminal(fallback);
+      fallback.show(false);
       return { ok: true, title: fallback.name, reused: true };
     }
 
@@ -197,7 +233,7 @@ export function revealAgentSession(input: AgentSessionRevealInput): AgentTermina
     || terminal.name.startsWith(`${titleBase} | `),
   );
   if (exact) {
-    focusTerminal(exact);
+    exact.show(false);
     return { ok: true, title: exact.name, reused: true };
   }
 
