@@ -25,6 +25,8 @@ export class WorkMcpEventListener implements Disposable {
   private endpointIndex = 0;
   private readonly endpoints = resolveWorkMcpEventEndpoints();
 
+  constructor(private readonly opts: { onTerminalOpen?: () => void } = {}) {}
+
   start(): void {
     log(`[work-mcp-events] starting listener (${this.endpoints.length} endpoint${this.endpoints.length === 1 ? "" : "s"})`);
     this.connect();
@@ -87,6 +89,7 @@ export class WorkMcpEventListener implements Disposable {
         const message = err instanceof Error ? err.message : String(err);
         log(`[work-mcp-events] executeCommand error: ${message}`);
       });
+      this.opts.onTerminalOpen?.();
     } catch {
       // ignore non-JSON / unrelated events
     }

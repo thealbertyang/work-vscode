@@ -7,13 +7,14 @@ import {
   AgentSessionItem,
   IssueItem,
   StoryAgentSummaryItem,
+  WorkAreaItem,
   WorkspaceIssuesProvider,
 } from "./providers/data/jira/issueProvider";
 import { LocalStoryReader } from "./providers/data/local/local-story-reader";
 import { StorageService } from "./service/storage-service";
 import { WorkspaceUriHandler } from "./service/uri-handler";
 import { WorkMcpEventListener } from "./service/work-mcp-events";
-import { buildAgentTerminalTitle, openOrReuseAgentTerminal } from "./service/agent-terminal";
+import { buildAgentTerminalTitle, openOrReuseAgentTerminal, launchAgentDirectly } from "./service/agent-terminal";
 import { spawnAgentViaWorkMcp } from "./service/work-mcp-client";
 import { VSCODE_COMMANDS } from "../shared/contracts";
 
@@ -32,6 +33,19 @@ function workspaceRoot(): string | null {
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function buildTmuxAttachShellCommand(sessionName: string): string {
+  const quotedSession = shellQuote(sessionName);
+  const missingMessage = shellQuote(`tmux session not found: ${sessionName}`);
+  return [
+    `if tmux has-session -t ${quotedSession} 2>/dev/null; then`,
+    `  exec tmux attach-session -t ${quotedSession};`,
+    "else",
+    `  printf '%s\\n' ${missingMessage};`,
+    "  exec zsh -i;",
+    "fi",
+  ].join(" ");
 }
 
 function sanitizeSegment(value: string): string {
@@ -111,7 +125,17 @@ function issueStorySlug(issue: JiraIssue): string {
 
 async function pickIssue(provider: WorkspaceIssuesProvider): Promise<JiraIssue | null> {
   const rows = await provider.getChildren();
-  const issues = rows.filter((row): row is IssueItem => row instanceof IssueItem);
+  const issues: IssueItem[] = [];
+  for (const row of rows) {
+    if (row instanceof IssueItem) {
+      issues.push(row);
+      continue;
+    }
+    if (row instanceof WorkAreaItem) {
+      const children = await provider.getChildren(row);
+      issues.push(...children.filter((child): child is IssueItem => child instanceof IssueItem));
+    }
+  }
   if (issues.length === 0) {
     vscode.window.showWarningMessage("No stories available to launch an agent.");
     return null;
@@ -176,19 +200,16 @@ async function launchStoryAgent(
       story,
       role: "worker",
     });
-    const result = openOrReuseAgentTerminal({
+    openOrReuseAgentTerminal({
       tool: spawned.tool,
       role: spawned.role,
       story: spawned.story,
       session: spawned.tmuxSession,
       windowIndex: spawned.tmuxWindowIndex,
     });
-    if (!result.ok) {
-      vscode.window.showWarningMessage("Open a workspace folder before spawning agent terminals.");
-    }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    vscode.window.showWarningMessage(`Failed to launch story agent for ${issue.key}: ${message}`);
+  } catch {
+    // MCP spawn failed — fall back to direct terminal launch
+    launchAgentDirectly({ tool: "claude", role: "worker", story });
   }
 }
 
@@ -257,7 +278,7 @@ export function activate(context: vscode.ExtensionContext): void {
       name: `Agent: ${sessionName.replace(/^agents-/, "")}`,
       cwd: rootPath,
       shellPath: ATTACH_SHELL,
-      shellArgs: ["-c", `exec tmux attach-session -t ${shellQuote(sessionName)}`],
+      shellArgs: ["-c", buildTmuxAttachShellCommand(sessionName)],
     });
     terminal.show(true);
   });
@@ -337,7 +358,9 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 
     // Connect to WorkMCP WS to receive terminal:open events
-    const mcpEvents = new WorkMcpEventListener();
+    const mcpEvents = new WorkMcpEventListener({
+      onTerminalOpen: () => provider?.refresh(),
+    });
     mcpEvents.start();
     context.subscriptions.push(mcpEvents);
 

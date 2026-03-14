@@ -1,9 +1,18 @@
 import * as vscode from "vscode";
 import { execFile } from "node:child_process";
+import type { DelegationIndexItem, WorkDelegationProjection } from "work-shared/domain/delegation";
 import { JiraClient, JiraIssue } from "./jiraClient";
 import { issueUri } from "./agentDecorationProvider";
 import { VSCODE_COMMANDS } from "../../../../shared/contracts";
 import { LocalStoryReader } from "../local/local-story-reader";
+import { fetchWorkDelegationProjection } from "../../../service/work-mcp-client";
+import {
+  delegationSummaryLabel,
+  explorerAreaLabel,
+  explorerSourceLabel,
+  type ExplorerIssueRow,
+  mergeExplorerIssueRows,
+} from "../work/delegation-rows";
 
 const ISSUE_TYPE_ICONS: Record<string, string> = {
   bug: "bug",
@@ -45,12 +54,22 @@ type AgentSessionsLoad = {
   unavailableReason?: string;
 };
 
-type TreeNode = IssueItem | StoryAgentSummaryItem | AgentSessionItem | AgentInfoItem;
+type TreeNode =
+  | WorkAreaItem
+  | IssueItem
+  | StoryAgentSummaryItem
+  | AgentSessionItem
+  | AgentInfoItem
+  | DelegationInfoItem;
 
 type StorySessionSelection = {
   visible: AgentSession[];
   hiddenDetached: number;
   hiddenOverflow: number;
+};
+
+type ExplorerRowWithSessions = ExplorerIssueRow & {
+  sessions: AgentSession[];
 };
 
 const TMUX_BIN_CANDIDATES = [
@@ -171,8 +190,22 @@ export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode
 
   async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     if (
+      element instanceof WorkAreaItem
+    ) {
+      return element.rows.map(({ issue, delegation, source }) =>
+        new IssueItem(
+          issue,
+          element.sessionsByStory.get(issue.key.toUpperCase()) ?? [],
+          element.tmuxUnavailableReason,
+          delegation,
+          source,
+        ));
+    }
+
+    if (
       element instanceof AgentSessionItem
       || element instanceof AgentInfoItem
+      || element instanceof DelegationInfoItem
     ) return [];
 
     if (element instanceof StoryAgentSummaryItem) {
@@ -180,11 +213,17 @@ export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode
     }
 
     if (element instanceof IssueItem) {
+      const children: TreeNode[] = [];
+      if (element.delegation) {
+        children.push(new DelegationInfoItem(element.delegation));
+      }
       if (element.tmuxUnavailableReason) {
-        return [new AgentInfoItem(`tmux unavailable: ${element.tmuxUnavailableReason}`)];
+        children.push(new AgentInfoItem(`tmux unavailable: ${element.tmuxUnavailableReason}`));
+        return children;
       }
       if (element.sessions.length === 0) {
-        return [new AgentInfoItem("No agent activity", element.issue, true)];
+        children.push(new AgentInfoItem("No agent activity", element.issue, true));
+        return children;
       }
       const selection = selectStorySessions(element.sessions);
       if (selection.visible.length === 0) {
@@ -192,36 +231,45 @@ export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode
         const label = hidden > 0
           ? `No attached agent activity · ${hidden} hidden`
           : "No agent activity";
-        return [new AgentInfoItem(label, element.issue, true)];
+        children.push(new AgentInfoItem(label, element.issue, true));
+        return children;
       }
       const hiddenCount = selection.hiddenDetached + selection.hiddenOverflow;
-      return [
+      children.push(
         new StoryAgentSummaryItem(
           element.issue,
           selection.visible,
           element.sessions.length,
           hiddenCount,
         ),
-      ];
+      );
+      return children;
     }
 
-    // Root: stories (Jira preferred, local snapshots fallback)
-    const [issuesResult, sessionsResult] = await Promise.allSettled([
+    // Root: canonical Work delegations first, Jira enrichment second, local snapshots fallback.
+    const localStories = this.storyReader?.readAll() ?? [];
+    const [delegationsResult, issuesResult, sessionsResult] = await Promise.allSettled([
+      fetchWorkDelegationProjection({ timeoutMs: 1_200 }),
       this.client.searchMyOpenSprintIssues(),
       loadOnlineAgentSessions(),
     ]);
 
     let issues: JiraIssue[] = [];
+    let delegations: WorkDelegationProjection | null = null;
+    if (delegationsResult.status === "fulfilled") {
+      delegations = delegationsResult.value;
+    }
     if (issuesResult.status === "fulfilled") {
       issues = issuesResult.value;
     } else {
       const error = issuesResult.reason;
       const message = error instanceof Error ? error.message : "Unknown error";
-      vscode.window.showErrorMessage(`Failed to load Work stories: ${message}`);
+      if (!delegations?.index.length && localStories.length === 0) {
+        vscode.window.showErrorMessage(`Failed to load Work stories: ${message}`);
+      }
     }
 
-    if (issues.length === 0) {
-      const localStories = this.storyReader?.readAll() ?? [];
+    if (!delegations?.index.length && issues.length === 0) {
       issues = localStories.map((story) => ({
         key: story.key,
         summary: story.summary,
@@ -245,12 +293,25 @@ export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode
       sessionsByStory.set(key, list);
     }
 
-    const rows = issues.map((issue) => ({
-      issue,
-      sessions: sessionsByStory.get(issue.key.toUpperCase()) ?? [],
+    const explorerRows = mergeExplorerIssueRows({
+      delegations,
+      jiraIssues: issues,
+      localStories,
+    });
+
+    const rows: ExplorerRowWithSessions[] = explorerRows.map((row) => ({
+      ...row,
+      sessions: sessionsByStory.get(row.issue.key.toUpperCase()) ?? [],
     }));
 
-    rows.sort((a, b) => {
+    const grouped = new Map<"work" | "personal", GroupedExplorerRows>();
+    for (const row of rows) {
+      const bucket = grouped.get(row.area) ?? { area: row.area, rows: [] };
+      bucket.rows.push(row);
+      grouped.set(row.area, bucket);
+    }
+
+    const sortRows = (a: ExplorerRowWithSessions, b: ExplorerRowWithSessions) => {
       const aAttached = attachedCount(a.sessions);
       const bAttached = attachedCount(b.sessions);
       if (aAttached !== bAttached) return bAttached - aAttached;
@@ -262,10 +323,16 @@ export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode
       if (aRank !== bRank) return aRank - bRank;
 
       return a.issue.key.localeCompare(b.issue.key);
-    });
+    };
 
-    return rows.map(({ issue, sessions }) =>
-      new IssueItem(issue, sessions, sessionsLoad.unavailableReason));
+    for (const bucket of grouped.values()) {
+      bucket.rows.sort(sortRows);
+    }
+
+    return (["work", "personal"] as const)
+      .map((area) => grouped.get(area))
+      .filter((bucket): bucket is GroupedExplorerRows => Boolean(bucket && bucket.rows.length > 0))
+      .map((bucket) => new WorkAreaItem(bucket.area, bucket.rows, sessionsByStory, sessionsLoad.unavailableReason));
   }
 }
 
@@ -358,10 +425,24 @@ function formatSessionDescription(session: AgentSession): string {
   return parts.join(" · ");
 }
 
-function formatIssueDescription(issue: JiraIssue, sessions: AgentSession[]): string {
-  if (sessions.length === 0) return issue.status;
+function formatIssueDescription(
+  issue: JiraIssue,
+  sessions: AgentSession[],
+  delegation?: DelegationIndexItem | null,
+  source?: ExplorerIssueRow["source"],
+): string {
+  const statusParts = [issue.status];
+  const sourceLabel = source ? explorerSourceLabel(source) : null;
+  if (sourceLabel) {
+    statusParts.push(sourceLabel);
+  }
+  if (delegation) {
+    statusParts.push(delegationSummaryLabel(delegation));
+  }
+  if (sessions.length === 0) return statusParts.join(" · ");
   const attached = attachedCount(sessions);
-  return `${issue.status} · ${attached}/${sessions.length} online`;
+  statusParts.push(`${attached}/${sessions.length} online`);
+  return statusParts.join(" · ");
 }
 
 function trimSummary(summary: string): string {
@@ -389,6 +470,25 @@ export class AgentSessionItem extends vscode.TreeItem {
       title: "Attach Agent Session",
       arguments: [session.sessionName],
     };
+  }
+}
+
+export class WorkAreaItem extends vscode.TreeItem {
+  constructor(
+    public readonly area: "work" | "personal",
+    public readonly rows: ExplorerIssueRow[],
+    public readonly sessionsByStory: Map<string, AgentSession[]>,
+    public readonly tmuxUnavailableReason?: string,
+  ) {
+    super(explorerAreaLabel(area), vscode.TreeItemCollapsibleState.Expanded);
+    const activeSessions = rows.reduce(
+      (sum, row) => sum + attachedCount(sessionsByStory.get(row.issue.key.toUpperCase()) ?? []),
+      0,
+    );
+    this.description = `${rows.length} item${rows.length === 1 ? "" : "s"}${activeSessions > 0 ? ` · ${activeSessions} online` : ""}`;
+    this.iconPath = new vscode.ThemeIcon(area === "work" ? "briefcase" : "person");
+    this.contextValue = `workArea.${area}`;
+    this.tooltip = `${explorerAreaLabel(area)} stories`;
   }
 }
 
@@ -428,14 +528,30 @@ export class AgentInfoItem extends vscode.TreeItem {
   }
 }
 
+export class DelegationInfoItem extends vscode.TreeItem {
+  constructor(public readonly delegation: DelegationIndexItem) {
+    super("Delegation", vscode.TreeItemCollapsibleState.None);
+    this.description = delegationSummaryLabel(delegation);
+    this.iconPath = new vscode.ThemeIcon("tasklist");
+    this.contextValue = "workDelegationInfo";
+    this.tooltip = [
+      delegation.storyKey,
+      delegationSummaryLabel(delegation),
+      `runtime=${delegation.primaryRuntime}`,
+    ].join(" · ");
+  }
+}
+
 export class IssueItem extends vscode.TreeItem {
   constructor(
     public readonly issue: JiraIssue,
     public readonly sessions: AgentSession[],
     public readonly tmuxUnavailableReason?: string,
+    public readonly delegation?: DelegationIndexItem | null,
+    public readonly source: ExplorerIssueRow["source"] = "jira",
   ) {
     super(`${issue.key}: ${trimSummary(issue.summary)}`, vscode.TreeItemCollapsibleState.Collapsed);
-    this.description = formatIssueDescription(issue, sessions);
+    this.description = formatIssueDescription(issue, sessions, delegation, source);
     this.iconPath = issueIcon(issue.issueType, issue.status);
     // resourceUri links this item to the AgentDecorationProvider via the
     // workspace-issue:// scheme — enables the right-side agent badge.
@@ -444,6 +560,8 @@ export class IssueItem extends vscode.TreeItem {
     this.tooltip = [
       issue.key,
       issue.status,
+      explorerSourceLabel(source),
+      delegation ? delegationSummaryLabel(delegation) : null,
       issue.issueType,
       issue.assignee ?? null,
     ]
@@ -456,3 +574,7 @@ export class IssueItem extends vscode.TreeItem {
     };
   }
 }
+type GroupedExplorerRows = {
+  area: "work" | "personal";
+  rows: ExplorerIssueRow[];
+};

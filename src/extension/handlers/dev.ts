@@ -23,7 +23,7 @@ import {
   type WorkMcpSpawnAction,
   spawnAgentViaWorkMcp,
 } from "../service/work-mcp-client";
-import { openOrReuseAgentTerminal } from "../service/agent-terminal";
+import { openOrReuseAgentTerminal, launchAgentDirectly } from "../service/agent-terminal";
 
 type DevDependencies = Pick<
   HandlerDependencies,
@@ -278,9 +278,13 @@ export const createDevHandlers = ({
           session: spawned.tmuxSession,
           windowIndex: spawned.tmuxWindowIndex,
         });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        window.showWarningMessage(`Failed to launch agent terminal: ${message}`);
+      } catch {
+        // MCP spawn failed — fall back to direct terminal launch
+        launchAgentDirectly({
+          tool: metadata.tool,
+          role: metadata.role,
+          story: metadata.story,
+        });
       }
     },
 

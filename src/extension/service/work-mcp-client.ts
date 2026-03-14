@@ -1,5 +1,9 @@
 import https from "node:https";
 import axios from "axios";
+import type {
+  WorkDelegationEntry,
+  WorkDelegationProjection,
+} from "work-shared/domain/delegation";
 
 export type WorkMcpAgentTool = "claude" | "codex";
 export type WorkMcpSpawnAction = "new" | "continue" | "resume";
@@ -23,6 +27,22 @@ export type WorkMcpSpawnResult = {
   tmuxWindowIndex: string;
   createdSession: boolean;
 };
+
+export interface WorkSnapshot {
+  namespace: "work.state";
+  schemaVersion: number;
+  path: string;
+  version: number;
+  checksum: string;
+  updatedAt: string | null;
+  state: {
+    graph: unknown;
+    delegations: WorkDelegationProjection;
+    lastSync: unknown;
+    graphAlertState: Record<string, unknown> | null;
+    rulebook: unknown;
+  };
+}
 
 const DEFAULT_ORIGINS = [
   "https://127.0.0.1:4500",
@@ -81,7 +101,7 @@ export function resolveWorkMcpEventEndpoints(): string[] {
   );
 }
 
-function formatSpawnError(error: unknown): string {
+function formatRequestError(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const responseMessage = typeof error.response?.data?.error === "string"
       ? error.response.data.error
@@ -96,6 +116,65 @@ function formatSpawnError(error: unknown): string {
   }
 
   return String(error);
+}
+
+async function getJsonViaOrigins<T>(
+  path: string,
+  opts?: { timeoutMs?: number },
+): Promise<T> {
+  let lastError: string | null = null;
+  const timeout = opts?.timeoutMs ?? 1_500;
+
+  for (const origin of resolveWorkMcpOrigins()) {
+    try {
+      const response = await axios.get<T | { error?: string }>(
+        `${origin}${path}`,
+        {
+          timeout,
+          httpsAgent: INSECURE_HTTPS_AGENT,
+          validateStatus: () => true,
+        },
+      );
+
+      if (response.status >= 200 && response.status < 300) {
+        return response.data as T;
+      }
+
+      lastError = typeof response.data?.error === "string"
+        ? `${origin}: ${response.data.error}`
+        : `${origin}: HTTP ${response.status}`;
+    } catch (error) {
+      lastError = `${origin}: ${formatRequestError(error)}`;
+    }
+  }
+
+  throw new Error(lastError ?? `Work MCP request failed for ${path}`);
+}
+
+export async function readWorkMcpResource<T>(
+  uri: string,
+  opts?: { timeoutMs?: number },
+): Promise<T> {
+  return await getJsonViaOrigins<T>(`/api/resources/${encodeURIComponent(uri)}`, opts);
+}
+
+export async function fetchWorkDelegationProjection(
+  opts?: { timeoutMs?: number },
+): Promise<WorkDelegationProjection> {
+  return await readWorkMcpResource<WorkDelegationProjection>("work://delegations", opts);
+}
+
+export async function fetchWorkDelegationEntry(
+  workId: string,
+  opts?: { timeoutMs?: number },
+): Promise<WorkDelegationEntry> {
+  return await readWorkMcpResource<WorkDelegationEntry>(`work://delegations/${encodeURIComponent(workId)}`, opts);
+}
+
+export async function fetchWorkSnapshot(
+  opts?: { timeoutMs?: number },
+): Promise<WorkSnapshot> {
+  return await readWorkMcpResource<WorkSnapshot>("work://state", opts);
 }
 
 export async function spawnAgentViaWorkMcp(
@@ -133,7 +212,7 @@ export async function spawnAgentViaWorkMcp(
         ? `${origin}: ${response.data.error}`
         : `${origin}: HTTP ${response.status}`;
     } catch (error) {
-      lastError = `${origin}: ${formatSpawnError(error)}`;
+      lastError = `${origin}: ${formatRequestError(error)}`;
     }
   }
 
