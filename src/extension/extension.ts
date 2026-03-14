@@ -117,16 +117,36 @@ function issueStorySlug(issue: JiraIssue): string {
 }
 
 async function pickIssue(provider: WorkspaceIssuesProvider): Promise<JiraIssue | null> {
+  const cachedIssues = provider.getCachedIssues();
+  if (cachedIssues.length > 0) {
+    const picked = await vscode.window.showQuickPick(
+      cachedIssues.map((issue) => ({
+        label: issue.key,
+        description: issue.status,
+        detail: issue.summary,
+        issue,
+      })),
+      {
+        title: "Select Story",
+        placeHolder: "Choose a story to manage",
+        ignoreFocusOut: true,
+      },
+    );
+    return picked?.issue ?? null;
+  }
+
   const rows = await provider.getChildren();
-  const issues: IssueItem[] = [];
+  const issues: JiraIssue[] = [];
   for (const row of rows) {
     if (row instanceof IssueItem) {
-      issues.push(row);
+      issues.push(row.issue);
       continue;
     }
     if (row instanceof WorkAreaItem) {
       const children = await provider.getChildren(row);
-      issues.push(...children.filter((child): child is IssueItem => child instanceof IssueItem));
+      issues.push(...children
+        .filter((child): child is IssueItem => child instanceof IssueItem)
+        .map((child) => child.issue));
     }
   }
   if (issues.length === 0) {
@@ -135,11 +155,11 @@ async function pickIssue(provider: WorkspaceIssuesProvider): Promise<JiraIssue |
   }
 
   const picked = await vscode.window.showQuickPick(
-    issues.map((item) => ({
-      label: item.issue.key,
-      description: item.issue.status,
-      detail: item.issue.summary,
-      issue: item.issue,
+    issues.map((issue) => ({
+      label: issue.key,
+      description: issue.status,
+      detail: issue.summary,
+      issue,
     })),
     {
       title: "Select Story",
@@ -174,28 +194,25 @@ async function launchStoryAgent(
 
   const story = issueStorySlug(issue);
 
+  // "start" mode: cycle through existing terminals, spawn only if none exist.
+  // "new" mode: always spawn a new terminal.
   if (mode === "start") {
-    // Cycle existing terminals for this story — never create new
-    const result = openOrReuseAgentTerminal({ tool: "claude", role: "worker", story });
-    if (result.reused) return;
+    const result = openOrReuseAgentTerminal({ tool: "claude", role: "worker", story, reuseOnly: true });
+    if (result.ok) return;
   }
 
-  // "new" mode or no existing terminals — spawn
   try {
-    const spawned = await spawnAgentViaWorkMcp({
+    // MCP spawns the agent and emits terminal:open via WS.
+    // WorkMcpEventListener receives the event and calls OPEN_AGENT_TERMINAL,
+    // which opens the terminal tab. No need to open it here too.
+    await spawnAgentViaWorkMcp({
       tool: "claude",
       action: mode === "start" ? "continue" : "new",
       story,
       role: "worker",
     });
-    openOrReuseAgentTerminal({
-      tool: spawned.tool,
-      role: spawned.role,
-      story: spawned.story,
-      session: spawned.tmuxSession,
-      windowIndex: spawned.tmuxWindowIndex,
-    });
   } catch {
+    // MCP unavailable — fall back to direct terminal launch
     launchAgentDirectly({ tool: "claude", role: "worker", story });
   }
 }
