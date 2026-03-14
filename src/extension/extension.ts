@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-import path from "node:path";
 import * as vscode from "vscode";
 import { IDENTITIES } from "./policy/identities";
 import { PermissionPolicy } from "./policy/permission-policy";
@@ -15,6 +13,8 @@ import { LocalStoryReader } from "./providers/data/local/local-story-reader";
 import { StorageService } from "./service/storage-service";
 import { WorkspaceUriHandler } from "./service/uri-handler";
 import { WorkMcpEventListener } from "./service/work-mcp-events";
+import { buildAgentTerminalTitle, openOrReuseAgentTerminal } from "./service/agent-terminal";
+import { spawnAgentViaWorkMcp } from "./service/work-mcp-client";
 import { VSCODE_COMMANDS } from "../shared/contracts";
 
 const LEGACY_START_TASK_TERMINAL_COMMANDS = [
@@ -41,17 +41,6 @@ function sanitizeSegment(value: string): string {
     .replace(/[^A-Za-z0-9._:/-]/g, "_")
     .replace(/-+/g, "-")
     .replace(/^[-_.:/]+|[-_.:/]+$/g, "");
-}
-
-/** Must match repos/work/mcp/runtime/tmux-agent.ts slugify exactly. */
-function tmuxSlugify(value: string, max = 48): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, max);
 }
 
 function isIssue(value: unknown): value is JiraIssue {
@@ -115,27 +104,6 @@ function normalizeAgentTerminalInput(
   };
 }
 
-function issueProgress(status: string): "todo" | "in-progress" | "blocked" | "done" {
-  const lower = status.toLowerCase();
-  if (lower.includes("done") || lower.includes("closed") || lower.includes("resolved")) {
-    return "done";
-  }
-  if (lower.includes("block")) return "blocked";
-  if (lower.includes("todo") || lower.includes("to do") || lower.includes("backlog")) {
-    return "todo";
-  }
-  return "in-progress";
-}
-
-function issueCategory(issueType: string): "feature" | "bugfix" | "research" | "refactor" | "ops" {
-  const lower = issueType.toLowerCase();
-  if (lower.includes("bug")) return "bugfix";
-  if (lower.includes("research")) return "research";
-  if (lower.includes("refactor")) return "refactor";
-  if (lower.includes("task") || lower.includes("chore")) return "ops";
-  return "feature";
-}
-
 function issueStorySlug(issue: JiraIssue): string {
   const base = sanitizeSegment(`${issue.key}-${issue.summary}`).toLowerCase();
   return base || issue.key.toLowerCase();
@@ -179,8 +147,7 @@ async function launchStoryAgent(
   issueInput: unknown,
   mode: "start" | "new",
 ): Promise<void> {
-  const root = workspaceRoot();
-  if (!root) {
+  if (!workspaceRoot()) {
     vscode.window.showWarningMessage("Open a workspace folder before launching story agents.");
     return;
   }
@@ -188,49 +155,41 @@ async function launchStoryAgent(
   const issue = extractIssue(issueInput) ?? await pickIssue(provider);
   if (!issue) return;
 
-  const launcher = path.join(root, "scripts", "agent-launch.sh");
-  if (!existsSync(launcher)) {
-    vscode.window.showWarningMessage(
-      `Missing launcher script: ${path.relative(root, launcher)}. Run .claude/setup.sh --apply.`,
-    );
-    return;
-  }
-
-  const title = `Story: ${issue.key}`;
+  const story = issueStorySlug(issue);
+  const title = buildAgentTerminalTitle({ tool: "claude", role: "worker", story });
   if (mode === "start") {
-    const existing = vscode.window.terminals.find((terminal) => terminal.name === title);
+    const existing = vscode.window.terminals.find((terminal) =>
+      terminal.name === title || terminal.name.startsWith(`${title} | `),
+    );
     if (existing) {
       existing.show(true);
       return;
     }
   }
 
-  const action = mode === "start" ? "continue-last" : "new";
-  const story = issueStorySlug(issue);
-  const progress = issueProgress(issue.status);
-  const category = issueCategory(issue.issueType);
-  const tag = issue.key.toLowerCase();
+  const action = mode === "start" ? "continue" : "new";
 
-  const tmuxSession = tmuxSlugify(`agents-claude-${story}`);
-
-  const spawnArgs = [launcher, "claude", action, story, progress, category, tag, "", "auto"];
-  const spawnCommand = spawnArgs.map(shellQuote).join(" ");
-
-  const terminal = vscode.window.createTerminal({
-    name: title,
-    cwd: root,
-    env: {
-      WORK_ID: issue.key,
-      WORK_PHASE: progress,
-      PROJECT: issue.project,
-    },
-    shellPath: ATTACH_SHELL,
-    shellArgs: [
-      "-c",
-      `${spawnCommand} > /dev/null 2>&1; exec tmux attach-session -t ${shellQuote(tmuxSession)}`,
-    ],
-  });
-  terminal.show(true);
+  try {
+    const spawned = await spawnAgentViaWorkMcp({
+      tool: "claude",
+      action,
+      story,
+      role: "worker",
+    });
+    const result = openOrReuseAgentTerminal({
+      tool: spawned.tool,
+      role: spawned.role,
+      story: spawned.story,
+      session: spawned.tmuxSession,
+      windowIndex: spawned.tmuxWindowIndex,
+    });
+    if (!result.ok) {
+      vscode.window.showWarningMessage("Open a workspace folder before spawning agent terminals.");
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    vscode.window.showWarningMessage(`Failed to launch story agent for ${issue.key}: ${message}`);
+  }
 }
 
 function registerCommandSafely(
@@ -326,35 +285,16 @@ export function activate(context: vscode.ExtensionContext): void {
       windowIndex,
     } = normalizeAgentTerminalInput(input);
 
-    const root = workspaceRoot();
-    if (!root) {
-      vscode.window.showWarningMessage("Open a workspace folder before spawning agent terminals.");
-      return;
-    }
-
-    const title = windowIndex
-      ? [tool, role, story, `w${windowIndex}`].join(" | ")
-      : [tool, role, story].join(" | ");
-
-    const terminal = vscode.window.createTerminal({
-      name: title,
-      cwd: root,
-      env: {
-        WORK_STORY: story,
-        WORK_AGENT_ROLE: role,
-        AGENT_TOOL: tool.toLowerCase(),
-      },
-      ...(session
-        ? {
-            shellPath: ATTACH_SHELL,
-            shellArgs: [
-              "-c",
-              `exec tmux attach-session -t ${shellQuote(windowIndex ? `${session}:${windowIndex}` : session)}`,
-            ],
-          }
-        : {}),
+    const result = openOrReuseAgentTerminal({
+      tool,
+      role,
+      story,
+      session,
+      windowIndex,
     });
-    terminal.show(true);
+    if (!result.ok) {
+      vscode.window.showWarningMessage("Open a workspace folder before spawning agent terminals.");
+    }
   });
   registerCommandSafely(context, VSCODE_COMMANDS.OPEN_AGENT_CHAT, async () => {
     await vscode.commands.executeCommand("workbench.action.chat.open");

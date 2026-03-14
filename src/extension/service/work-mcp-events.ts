@@ -3,17 +3,9 @@ import type { Disposable } from "vscode";
 import { commands } from "vscode";
 import { log } from "../providers/data/jira/logger";
 import { VSCODE_COMMANDS } from "../../shared/contracts";
+import { resolveWorkMcpEventEndpoints } from "./work-mcp-client";
 
 const RECONNECT_MS = 5_000;
-
-const DEFAULT_ENDPOINTS = [
-  "wss://127.0.0.1:4500/ws?topic=events",
-  "ws://127.0.0.1:4500/ws?topic=events",
-  "wss://localhost:4500/ws?topic=events",
-  "ws://localhost:4500/ws?topic=events",
-  "wss://127.0.0.1:3001/ws?topic=events",
-  "ws://127.0.0.1:3001/ws?topic=events",
-] as const;
 
 function normalizeWindowIndex(value: unknown): string | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -22,14 +14,8 @@ function normalizeWindowIndex(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function resolveEndpoints(): string[] {
-  const configured = process.env.WORK_MCP_WS_URL?.trim();
-  if (configured) return [configured];
-  return [...DEFAULT_ENDPOINTS];
-}
-
 /**
- * Subscribe to WorkMCP live events and open agent terminals on
+ * Subscribe to Work MCP live events and open agent terminals on
  * `terminal:open` notifications.
  */
 export class WorkMcpEventListener implements Disposable {
@@ -37,7 +23,7 @@ export class WorkMcpEventListener implements Disposable {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
   private endpointIndex = 0;
-  private readonly endpoints = resolveEndpoints();
+  private readonly endpoints = resolveWorkMcpEventEndpoints();
 
   start(): void {
     log(`[work-mcp-events] starting listener (${this.endpoints.length} endpoint${this.endpoints.length === 1 ? "" : "s"})`);

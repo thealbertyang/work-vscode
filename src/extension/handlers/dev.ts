@@ -1,6 +1,4 @@
 import { spawn } from "child_process";
-import { existsSync } from "fs";
-import path from "path";
 import {
   commands,
   workspace,
@@ -20,6 +18,12 @@ import { getOrCreateWsBridgeToken } from "../service/ws-bridge-auth";
 import type { HandlerDependencies } from "./types";
 import type { ExtensionBuildWatcher } from "../service/extension-build-watcher";
 import { buildViteEnvKeys } from "../../shared/app-identity";
+import {
+  type WorkMcpAgentTool,
+  type WorkMcpSpawnAction,
+  spawnAgentViaWorkMcp,
+} from "../service/work-mcp-client";
+import { openOrReuseAgentTerminal } from "../service/agent-terminal";
 
 type DevDependencies = Pick<
   HandlerDependencies,
@@ -33,11 +37,7 @@ type DevDependencies = Pick<
     "closeApp"
 >;
 
-type AgentTool = "claude" | "codex";
-type AgentAction = "continue-last" | "resume" | "fork-last" | "fork" | "new";
-type AgentProgress = "todo" | "in-progress" | "blocked" | "done";
-type AgentCategory = "feature" | "bugfix" | "research" | "refactor" | "ops" | "chore";
-type AgentTmuxMode = "auto" | "off" | "window" | "pane";
+type AgentRole = "worker" | "reviewer" | "verifier" | "orchestrator";
 
 type QuickPickChoice<T extends string> = {
   label: string;
@@ -45,48 +45,28 @@ type QuickPickChoice<T extends string> = {
   value: T;
 };
 
-const AGENT_TOOL_CHOICES: QuickPickChoice<AgentTool>[] = [
+const AGENT_TOOL_CHOICES: QuickPickChoice<WorkMcpAgentTool>[] = [
   { label: "Codex", description: "OpenAI Codex CLI", value: "codex" },
   { label: "Claude", description: "Claude Code CLI", value: "claude" },
 ];
 
-const AGENT_ACTION_CHOICES: QuickPickChoice<AgentAction>[] = [
-  { label: "Continue Last", description: "Continue the most recent session", value: "continue-last" },
+const AGENT_ACTION_CHOICES: QuickPickChoice<WorkMcpSpawnAction>[] = [
+  { label: "Continue", description: "Continue the latest session in a new tmux window", value: "continue" },
   { label: "Resume", description: "Choose from session history", value: "resume" },
-  { label: "Fork Last", description: "Fork from the latest session", value: "fork-last" },
-  { label: "Fork", description: "Fork from session history", value: "fork" },
   { label: "New", description: "Start a brand-new session", value: "new" },
 ];
 
-const AGENT_PROGRESS_CHOICES: QuickPickChoice<AgentProgress>[] = [
-  { label: "IN-PROGRESS", description: "Active work", value: "in-progress" },
-  { label: "TODO", description: "Queued", value: "todo" },
-  { label: "BLOCKED", description: "Waiting on dependency", value: "blocked" },
-  { label: "DONE", description: "Completed", value: "done" },
-];
-
-const AGENT_CATEGORY_CHOICES: QuickPickChoice<AgentCategory>[] = [
-  { label: "Feature", description: "Feature development", value: "feature" },
-  { label: "Bugfix", description: "Issue repair", value: "bugfix" },
-  { label: "Research", description: "Discovery/investigation", value: "research" },
-  { label: "Refactor", description: "Code quality improvements", value: "refactor" },
-  { label: "Ops", description: "Environment or infra work", value: "ops" },
-  { label: "Chore", description: "Maintenance tasks", value: "chore" },
-];
-
-const AGENT_TMUX_MODE_CHOICES: QuickPickChoice<AgentTmuxMode>[] = [
-  { label: "Auto", description: "Use tmux if available", value: "auto" },
-  { label: "Off", description: "Run directly in this terminal", value: "off" },
-  { label: "Window", description: "Force a new tmux window", value: "window" },
-  { label: "Pane", description: "Prefer a split pane in tmux", value: "pane" },
+const AGENT_ROLE_CHOICES: QuickPickChoice<AgentRole>[] = [
+  { label: "Worker", description: "General implementation agent", value: "worker" },
+  { label: "Reviewer", description: "Review and critique changes", value: "reviewer" },
+  { label: "Verifier", description: "Validate behavior and acceptance", value: "verifier" },
+  { label: "Orchestrator", description: "Coordinate multi-agent work", value: "orchestrator" },
 ];
 
 const WS_BRIDGE_TOKEN_VITE_KEYS = buildViteEnvKeys("WS_BRIDGE_TOKEN");
 
 const DEFAULT_STORY = "work";
-const DEFAULT_TAG = "";
-const DEFAULT_CUSTOM_VARS = "";
-const DEFAULT_TMUX_MODE: AgentTmuxMode = "auto";
+const DEFAULT_PROMPT = "";
 
 const sanitizeSegment = (value: string): string => {
   return value
@@ -97,14 +77,10 @@ const sanitizeSegment = (value: string): string => {
     .replace(/^[-_.:/]+|[-_.:/]+$/g, "");
 };
 
-const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
-
 const workspaceRoot = (): string | null => {
   const folder = workspace.workspaceFolders?.[0];
   return folder?.uri.fsPath ?? null;
 };
-
-const launcherPath = (root: string): string => path.join(root, "scripts", "agent-launch.sh");
 
 async function pickValue<T extends string>(
   title: string,
@@ -123,14 +99,11 @@ async function pickValue<T extends string>(
 }
 
 type AgentLaunchMetadata = {
-  tool: AgentTool;
-  action: AgentAction;
+  tool: WorkMcpAgentTool;
+  action: WorkMcpSpawnAction;
   story: string;
-  progress: AgentProgress;
-  category: AgentCategory;
-  tag: string;
-  customVars: string;
-  tmuxMode: AgentTmuxMode;
+  role: AgentRole;
+  prompt: string;
 };
 
 async function collectAgentLaunchMetadata(): Promise<AgentLaunchMetadata | null> {
@@ -157,53 +130,27 @@ async function collectAgentLaunchMetadata(): Promise<AgentLaunchMetadata | null>
   if (storyInput === undefined) return null;
   const story = sanitizeSegment(storyInput) || DEFAULT_STORY;
 
-  const progress = await pickValue(
+  const role = await pickValue(
     "Agent Terminal",
-    "Select progress state",
-    AGENT_PROGRESS_CHOICES,
+    "Select agent role",
+    AGENT_ROLE_CHOICES,
   );
-  if (!progress) return null;
+  if (!role) return null;
 
-  const category = await pickValue(
-    "Agent Terminal",
-    "Select category",
-    AGENT_CATEGORY_CHOICES,
-  );
-  if (!category) return null;
-
-  const tagInput = await window.showInputBox({
+  const promptInput = await window.showInputBox({
     title: "Agent Terminal",
-    prompt: "Optional tag for terminal title",
-    value: DEFAULT_TAG,
+    prompt: "Optional launch prompt",
+    value: DEFAULT_PROMPT,
     ignoreFocusOut: true,
   });
-  if (tagInput === undefined) return null;
-  const tag = sanitizeSegment(tagInput);
-
-  const customVarsInput = await window.showInputBox({
-    title: "Agent Terminal",
-    prompt: "Optional custom vars: KEY=VALUE,KEY2=VALUE2",
-    value: DEFAULT_CUSTOM_VARS,
-    ignoreFocusOut: true,
-  });
-  if (customVarsInput === undefined) return null;
-
-  const tmuxMode = await pickValue(
-    "Agent Terminal",
-    "Select tmux mode",
-    AGENT_TMUX_MODE_CHOICES,
-  );
-  if (!tmuxMode) return null;
+  if (promptInput === undefined) return null;
 
   return {
     tool,
     action,
     story,
-    progress,
-    category,
-    tag,
-    customVars: customVarsInput.trim(),
-    tmuxMode,
+    role,
+    prompt: promptInput.trim(),
   };
 }
 
@@ -291,59 +238,23 @@ export const createDevHandlers = ({
       session?: string;
       windowIndex?: string;
     }) => {
-      const root = workspaceRoot();
-      if (!root) {
-        window.showWarningMessage("Open a workspace folder before spawning agent terminals.");
-        return { ok: false, error: "no_workspace" };
-      }
-
-      const tool = (params?.tool ?? "claude").toUpperCase();
-      const role = params?.role ?? "worker";
-      const story = params?.story ?? "work";
-      const session = params?.session ?? "";
-      const windowIndex = params?.windowIndex;
-
-      const title = [tool, role, story].join(" | ");
-
-      // Reuse existing terminal with same title
-      const existing = window.terminals.find((t) => t.name === title);
-      if (existing) {
-        existing.show(true);
-        return { ok: true, title, reused: true };
-      }
-
-      const terminal = window.createTerminal({
-        name: title,
-        cwd: root,
-        env: {
-          WORK_STORY: story,
-          WORK_AGENT_ROLE: role,
-          AGENT_TOOL: tool.toLowerCase(),
-        },
+      const result = openOrReuseAgentTerminal({
+        tool: params?.tool,
+        role: params?.role,
+        story: params?.story,
+        session: params?.session,
+        windowIndex: params?.windowIndex,
       });
-      terminal.show(true);
-
-      // Attach to tmux session if provided
-      if (session) {
-        const target = windowIndex ? `${session}:${windowIndex}` : session;
-        terminal.sendText(`tmux attach-session -t ${shellQuote(target)}`, true);
+      if (!result.ok) {
+        window.showWarningMessage("Open a workspace folder before spawning agent terminals.");
+        return { ok: false, error: result.error ?? "no_workspace" };
       }
-
-      return { ok: true, title, reused: false };
+      return result;
     },
 
     startTaskTerminal: async () => {
-      const root = workspaceRoot();
-      if (!root) {
+      if (!workspaceRoot()) {
         window.showWarningMessage("Open a workspace folder before spawning agent terminals.");
-        return;
-      }
-
-      const launcher = launcherPath(root);
-      if (!existsSync(launcher)) {
-        window.showWarningMessage(
-          `Missing launcher script: ${path.relative(root, launcher)}. Run .claude/setup.sh --apply first.`,
-        );
         return;
       }
 
@@ -352,46 +263,25 @@ export const createDevHandlers = ({
         return;
       }
 
-      const titleParts = [
-        metadata.tool.toUpperCase(),
-        metadata.category,
-        metadata.story,
-        metadata.progress,
-      ];
-      if (metadata.tag) {
-        titleParts.push(metadata.tag);
+      try {
+        const spawned = await spawnAgentViaWorkMcp({
+          tool: metadata.tool,
+          action: metadata.action,
+          story: metadata.story,
+          role: metadata.role,
+          prompt: metadata.prompt,
+        });
+        openOrReuseAgentTerminal({
+          tool: spawned.tool,
+          role: spawned.role,
+          story: spawned.story,
+          session: spawned.tmuxSession,
+          windowIndex: spawned.tmuxWindowIndex,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        window.showWarningMessage(`Failed to launch agent terminal: ${message}`);
       }
-      const title = titleParts.join(" | ");
-
-      const terminal = window.createTerminal({
-        name: title,
-        cwd: root,
-        env: {
-          AGENT_TOOL: metadata.tool,
-          AGENT_ACTION: metadata.action,
-          AGENT_STORY: metadata.story,
-          AGENT_PROGRESS: metadata.progress,
-          AGENT_CATEGORY: metadata.category,
-          AGENT_TAG: metadata.tag,
-          AGENT_TITLE: title,
-          AGENT_TMUX_MODE: metadata.tmuxMode,
-        },
-      });
-
-      const command = [
-        shellQuote(launcher),
-        shellQuote(metadata.tool),
-        shellQuote(metadata.action),
-        shellQuote(metadata.story),
-        shellQuote(metadata.progress),
-        shellQuote(metadata.category),
-        shellQuote(metadata.tag),
-        shellQuote(metadata.customVars),
-        shellQuote(metadata.tmuxMode || DEFAULT_TMUX_MODE),
-      ].join(" ");
-
-      terminal.show(false);
-      terminal.sendText(command, true);
     },
 
     buildExtension: () => {
