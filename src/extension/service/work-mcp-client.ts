@@ -97,9 +97,19 @@ export function resolveWorkMcpEventEndpoints(): string[] {
     return [normalizeBaseUrl(configuredWs)];
   }
 
-  return unique(
-    resolveWorkMcpOrigins().map((origin) => `${httpToWs(origin)}/ws?topic=events`),
-  );
+  // Return only distinct host:port combinations to avoid duplicate WS connections
+  // to the same server (e.g. 127.0.0.1:4500 and localhost:4500 are the same server).
+  // Prefer wss over ws, prefer 127.0.0.1 over localhost.
+  const seen = new Set<string>();
+  const endpoints: string[] = [];
+  for (const origin of resolveWorkMcpOrigins()) {
+    const url = new URL(origin);
+    const portKey = url.port || (url.protocol === "https:" ? "443" : "80");
+    if (seen.has(portKey)) continue;
+    seen.add(portKey);
+    endpoints.push(`${httpToWs(origin)}/ws?topic=events`);
+  }
+  return endpoints;
 }
 
 function formatRequestError(error: unknown): string {
