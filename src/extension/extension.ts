@@ -197,7 +197,7 @@ async function launchStoryAgent(
   // "start" mode: cycle through existing terminals, spawn only if none exist.
   // "new" mode: always spawn a new terminal.
   if (mode === "start") {
-    const result = openOrReuseAgentTerminal({ tool: "claude", role: "worker", story, reuseOnly: true });
+    const result = await openOrReuseAgentTerminal({ tool: "claude", role: "worker", story, reuseOnly: true });
     if (result.ok) return;
   }
 
@@ -313,7 +313,9 @@ export function activate(context: vscode.ExtensionContext): void {
       windowIndex,
     } = normalizeAgentTerminalInput(input);
 
-    const result = openOrReuseAgentTerminal({
+    console.log(`[work] OPEN_AGENT_TERMINAL called: tool=${tool} story=${story} session=${session} ts=${Date.now()}`);
+
+    const result = await openOrReuseAgentTerminal({
       tool,
       role,
       story,
