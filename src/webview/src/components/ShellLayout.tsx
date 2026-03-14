@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import type { ShellSection } from "../lib/shell";
-import { StageRail } from "./StageRail";
-import { StageHeader } from "./StageHeader";
+import { ShellRail } from "./ShellRail";
+import { ShellHeader } from "./ShellHeader";
 import { UrlBar } from "./UrlBar";
 
-type StageLayoutProps = {
+type ShellLayoutProps = {
   sections: ShellSection[];
   activeSection: string;
   currentSection: ShellSection | undefined;
@@ -18,11 +18,12 @@ type StageLayoutProps = {
   canGoForward?: boolean;
   onGoBack?: () => void;
   onGoForward?: () => void;
+  headerMeta?: ReactNode;
   headerActions?: ReactNode;
   children: ReactNode;
 };
 
-export function StageLayout({
+export function ShellLayout({
   sections,
   activeSection,
   currentSection,
@@ -36,16 +37,17 @@ export function StageLayout({
   canGoForward,
   onGoBack,
   onGoForward,
+  headerMeta,
   headerActions,
   children,
-}: StageLayoutProps) {
+}: ShellLayoutProps) {
   return (
-    <div className="stage-layout">
-      <StageRail sections={sections} activeSection={activeSection} onNavigate={onNavigate} />
-      <div className="stage-content">
+    <div className="shell-layout">
+      <ShellRail sections={sections} activeSection={activeSection} onNavigate={onNavigate} />
+      <div className="shell-content">
         <UrlBar
           deepLinkUrl={deepLinkUrl}
-          stageIcon={currentSection?.icon}
+          sectionIcon={currentSection?.icon}
           onNavigate={onNavigate}
           onCopy={onCopy}
           onRefresh={onRefresh}
@@ -58,13 +60,14 @@ export function StageLayout({
           onGoBack={onGoBack}
           onGoForward={onGoForward}
         />
-        <StageHeader
+        <ShellHeader
           section={currentSection}
           currentPath={currentPath}
           onNavigate={onNavigate}
+          meta={headerMeta}
           actions={headerActions}
         />
-        <main className="stage-main">{children}</main>
+        <main className="shell-main">{children}</main>
       </div>
     </div>
   );

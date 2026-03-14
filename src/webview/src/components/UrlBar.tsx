@@ -3,7 +3,7 @@ import { parseNavTarget } from "../lib/parse-nav-target";
 
 type UrlBarProps = {
   deepLinkUrl: string;
-  stageIcon?: string;
+  sectionIcon?: string;
   onNavigate: (path: string) => void;
   onCopy: () => void;
   onRefresh?: () => void;
@@ -17,7 +17,7 @@ type UrlBarProps = {
 
 export function UrlBar({
   deepLinkUrl,
-  stageIcon,
+  sectionIcon,
   onNavigate,
   onCopy,
   onRefresh,
@@ -109,7 +109,7 @@ export function UrlBar({
         </button>
       </div>
       <span className="url-bar-nav-sep" />
-      {stageIcon ? <span className={`url-bar-icon codicon ${stageIcon}`} aria-hidden="true" /> : null}
+      {sectionIcon ? <span className={`url-bar-icon codicon ${sectionIcon}`} aria-hidden="true" /> : null}
       <input
         ref={inputRef}
         type="text"

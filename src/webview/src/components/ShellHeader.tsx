@@ -2,14 +2,15 @@ import type { ReactNode } from "react";
 import type { ShellSection } from "../lib/shell";
 import { SubNav } from "./SubNav";
 
-type StageHeaderProps = {
+type ShellHeaderProps = {
   section: ShellSection | undefined;
   currentPath: string;
   onNavigate: (path: string) => void;
+  meta?: ReactNode;
   actions?: ReactNode;
 };
 
-export function StageHeader({ section, currentPath, onNavigate, actions }: StageHeaderProps) {
+export function ShellHeader({ section, currentPath, onNavigate, meta, actions }: ShellHeaderProps) {
   if (!section) {
     return null;
   }
@@ -19,14 +20,19 @@ export function StageHeader({ section, currentPath, onNavigate, actions }: Stage
     : [];
 
   return (
-    <header className="stage-header">
-      <div className="stage-header-left">
-        <h1 className="stage-title">{section.label}</h1>
+    <header className="shell-header">
+      <div className="shell-header-left">
+        <h1 className="shell-title">{section.label}</h1>
         {subnavItems.length > 0 ? (
           <SubNav items={subnavItems} currentPath={currentPath} onNavigate={onNavigate} />
         ) : null}
       </div>
-      {actions ? <div className="stage-header-actions">{actions}</div> : null}
+      {meta || actions ? (
+        <div className="shell-header-right">
+          {meta ? <div className="shell-header-meta">{meta}</div> : null}
+          {actions ? <div className="shell-header-actions">{actions}</div> : null}
+        </div>
+      ) : null}
     </header>
   );
 }

@@ -585,17 +585,17 @@ function RegistryPage() {
             {(() => {
               const tok = (text: string, type: "publisher" | "domain" | "noun" | "verb" | "sep" | "literal") => {
                 const colors: Record<string, string> = {
-                  publisher: "var(--vscode-charts-gray, #888)",
-                  domain: "var(--vscode-charts-blue, #4fc1ff)",
-                  noun: "var(--vscode-charts-green, #89d185)",
-                  verb: "var(--vscode-charts-orange, #cca700)",
-                  sep: "var(--vscode-descriptionForeground, #888)",
-                  literal: "var(--vscode-foreground)",
+                  publisher: "var(--token-domain-publisher)",
+                  domain: "var(--token-domain-domain)",
+                  noun: "var(--token-domain-noun)",
+                  verb: "var(--token-domain-verb)",
+                  sep: "var(--token-domain-separator)",
+                  literal: "var(--token-domain-literal)",
                 };
                 return <span style={{ color: colors[type], fontFamily: "var(--vscode-editor-font-family, monospace)" }}>{text}</span>;
               };
 
-              const labelStyle: React.CSSProperties = { color: "var(--vscode-descriptionForeground)", whiteSpace: "nowrap" };
+              const labelStyle: React.CSSProperties = { color: "var(--token-domain-separator)", whiteSpace: "nowrap" };
 
               return (
                 <div style={{ marginTop: 16 }}>

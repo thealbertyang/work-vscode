@@ -23,6 +23,11 @@ export type WebviewState = {
   devMode?: boolean;
   extensionId?: string;
   uriScheme?: string;
+  app?: {
+    id?: string;
+    name?: string;
+    version?: string;
+  };
   dev?: DevState;
 };
 

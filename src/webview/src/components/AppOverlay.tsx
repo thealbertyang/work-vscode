@@ -12,7 +12,7 @@ import { executeUniversalAction } from "../lib/execute-universal-action";
 
 type AppOverlayProps = {
   isConnected: boolean;
-  stageLabel: string;
+  shellLabel: string;
   currentSection: string;
   currentStage: string;
   lastExtensionBuildAt?: number | null;
@@ -35,7 +35,7 @@ type AppOverlayProps = {
 
 export function AppOverlay({
   isConnected,
-  stageLabel,
+  shellLabel,
   currentSection,
   currentStage,
   lastExtensionBuildAt,
@@ -135,7 +135,7 @@ export function AppOverlay({
 
   // Scroll-based fade at bottom
   useEffect(() => {
-    const main = document.querySelector(".stage-main");
+    const main = document.querySelector(".shell-main");
     if (!main) return;
     const handleScroll = () => {
       const atBottom = main.scrollHeight - main.scrollTop - main.clientHeight < 20;
@@ -274,7 +274,7 @@ export function AppOverlay({
         {!searchOpen ? (
           <AppOverlayPill
             isConnected={isConnected}
-            stageLabel={stageLabel}
+            shellLabel={shellLabel}
             onClick={() => setExpanded(!expanded)}
           />
         ) : null}

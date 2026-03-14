@@ -26,7 +26,7 @@ import {
   isAppDispatcherPath,
   type RouteHint,
 } from "@shared/contracts";
-import { StageLayout } from "./components/StageLayout";
+import { ShellLayout } from "./components/ShellLayout";
 import { AppOverlay } from "./components/AppOverlay";
 import { AppToast, type ToastData } from "./components/AppToast";
 import { getSourceLabel } from "./lib/connection-labels";
@@ -74,6 +74,7 @@ const EMPTY_STATE: WebviewState = {
   devMode: false,
   extensionId: "",
   uriScheme: "",
+  app: { id: "", name: "Work", version: "" },
 };
 
 const formatTimestamp = (value: number | null | undefined) => {
@@ -183,10 +184,51 @@ function App({ children }: AppProps) {
         ? "plan"
         : currentSectionId;
   const currentStageConfig = stages.find((stage) => stage.id === currentStage);
-  const stageLabel =
+  const shellLabel =
     currentSectionId === "work" && currentStageConfig
       ? `Work · ${currentStageConfig.label}`
       : currentSection?.label ?? "Work";
+  const shellMeta = useMemo<ReactNode>(() => {
+    const extensionVersion = state.app?.version?.trim();
+    const mcpVersion = shellSummary?.systemSummary.version?.trim();
+    const protocolVersion = shellSummary?.systemSummary.protocolVersion?.trim();
+    const transportLabel = shellSummary?.systemSummary.secure ? "HTTPS" : "HTTP";
+
+    if (!extensionVersion && !mcpVersion && !protocolVersion && !shellSummary) {
+      return null;
+    }
+
+    return (
+      <div className="shell-status-strip" aria-label="Shell runtime status">
+        {extensionVersion ? (
+          <span className="shell-status-chip">
+            <span className="shell-status-chip-label">Ext</span>
+            <span>{extensionVersion}</span>
+          </span>
+        ) : null}
+        {mcpVersion ? (
+          <span className="shell-status-chip">
+            <span className="shell-status-chip-label">MCP</span>
+            <span>{mcpVersion}</span>
+          </span>
+        ) : null}
+        {protocolVersion ? (
+          <span className="shell-status-chip">
+            <span className="shell-status-chip-label">Protocol</span>
+            <span>{protocolVersion}</span>
+          </span>
+        ) : null}
+        {shellSummary ? (
+          <span
+            className={`shell-status-chip ${shellSummary.systemSummary.secure ? "shell-status-chip-secure" : "shell-status-chip-insecure"}`}
+          >
+            <span className="shell-status-chip-dot" aria-hidden="true" />
+            <span>{transportLabel}</span>
+          </span>
+        ) : null}
+      </div>
+    );
+  }, [shellSummary, state.app?.version]);
 
   const loadState = async () => {
     if (!isWebview) {
@@ -739,7 +781,7 @@ function App({ children }: AppProps) {
         shellSummary,
       }}
     >
-      <StageLayout
+      <ShellLayout
         sections={shellSections}
         activeSection={currentSectionId}
         currentSection={currentSection}
@@ -753,6 +795,7 @@ function App({ children }: AppProps) {
         canGoForward={navHistory.canGoForward}
         onGoBack={handleGoBack}
         onGoForward={handleGoForward}
+        headerMeta={shellMeta}
         headerActions={
           !status.isConnected ? (
             <button className="secondary" onClick={() => navigateTo("/system/settings")} disabled={loading}>
@@ -789,11 +832,11 @@ function App({ children }: AppProps) {
         ) : null}
 
         {children}
-      </StageLayout>
+      </ShellLayout>
 
       <AppOverlay
         isConnected={status.isConnected}
-        stageLabel={stageLabel}
+        shellLabel={shellLabel}
         currentSection={currentSectionId}
         currentStage={currentStage}
         devMode={state.devMode}

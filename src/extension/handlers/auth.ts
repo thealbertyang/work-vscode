@@ -43,6 +43,11 @@ export const createAuthHandlers = ({
       devMode: context.extensionMode === ExtensionMode.Development,
       extensionId: context.extension.id,
       uriScheme: env.uriScheme,
+      app: {
+        id: context.extension.id,
+        name: context.extension.packageJSON.displayName || context.extension.packageJSON.name || "Work",
+        version: context.extension.packageJSON.version || "0.0.0",
+      },
       dev: {
         lastExtensionBuildAt: buildWatcher.getLastBuildAt(),
         lastWebviewRenderAt: renderTracker.getLastRenderedAt(),

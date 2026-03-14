@@ -158,12 +158,6 @@
   --surface-selected-fill: color-mix(in oklch, var(--color-role-accent) 18%, transparent);
   --surface-selected-fill-strong: color-mix(in oklch, var(--color-role-accent) 28%, transparent);
 
-  /* Backward-compatible aliases while old component names are removed */
-  --app-accent: var(--color-role-accent);
-  --app-muted: var(--color-role-accent-muted);
-  --stage-rail-width: var(--nav-rail-width);
-  --stage-rail-active-border: var(--surface-selected-border);
-
   /* ── Semantic token colors for naming/system views ── */
   --token-domain-publisher: var(--text-secondary);
   --token-domain-domain: var(--chart-blue);

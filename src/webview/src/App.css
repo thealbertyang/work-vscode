@@ -15,16 +15,16 @@
 }
 
 /* ==========================================================================
-   Stage Layout
+   Shell Layout
    ========================================================================== */
 
-.stage-layout {
+.shell-layout {
   display: flex;
   height: 100vh;
   overflow: hidden;
 }
 
-.stage-content {
+.shell-content {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -32,20 +32,20 @@
   overflow: hidden;
 }
 
-.stage-main {
+.shell-main {
   flex: 1;
   overflow-y: auto;
   padding: var(--space-8);
-  view-transition-name: workspace-stage-main;
+  view-transition-name: workspace-shell-main;
 }
 
 /* ==========================================================================
    Shell Rail (left column, width comes from semantic tokens)
    ========================================================================== */
 
-.stage-rail {
-  width: var(--nav-rail-width, var(--stage-rail-width, 48px));
-  min-width: var(--nav-rail-width, var(--stage-rail-width, 48px));
+.shell-rail {
+  width: var(--nav-rail-width, 48px);
+  min-width: var(--nav-rail-width, 48px);
   display: flex;
   flex-direction: column;
   background: var(--glass-regular-bg);
@@ -56,7 +56,7 @@
     inset -0.5px 0 0 0 var(--highlight);
 }
 
-.stage-rail-main {
+.shell-rail-main {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -64,7 +64,7 @@
   gap: 4px;
 }
 
-.stage-rail-item {
+.shell-rail-item {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -87,52 +87,52 @@
     transform var(--duration-short) var(--spring-default);
 }
 
-.stage-rail-item:hover {
+.shell-rail-item:hover {
   background: var(--fill-hover);
   color: var(--text-secondary);
 }
 
-.stage-rail-item:active {
+.shell-rail-item:active {
   transform: scale(0.94);
 }
 
-.stage-rail-active {
+.shell-rail-active {
   background: var(--surface-selected-fill, var(--glass-tint-subtle));
   box-shadow:
-    0 0 0 1px var(--surface-selected-border, var(--stage-rail-active-border, var(--focus-ring))),
+    0 0 0 1px var(--surface-selected-border, var(--focus-ring)),
     var(--glass-edge-active);
   color: var(--text-primary);
   font-weight: 600;
 }
 
-.stage-rail-active:hover {
+.shell-rail-active:hover {
   background: var(--surface-selected-fill-strong, var(--glass-tint-medium));
   box-shadow:
-    0 0 0 1px var(--surface-selected-border, var(--stage-rail-active-border, var(--focus-ring))),
+    0 0 0 1px var(--surface-selected-border, var(--focus-ring)),
     var(--glass-edge-active-hover);
 }
 
-.stage-rail-item:focus-visible {
+.shell-rail-item:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
-.stage-rail-icon {
+.shell-rail-icon {
   font-size: var(--icon-lg);
   line-height: 1;
   opacity: 0.5;
   transition: opacity var(--duration-fast) ease-out;
 }
 
-.stage-rail-item:hover .stage-rail-icon {
+.shell-rail-item:hover .shell-rail-icon {
   opacity: 0.8;
 }
 
-.stage-rail-active .stage-rail-icon {
+.shell-rail-active .shell-rail-icon {
   opacity: 1;
 }
 
-.stage-rail-label {
+.shell-rail-label {
   font-size: 10px;
   line-height: 1.15;
   white-space: normal;
@@ -141,7 +141,7 @@
 }
 
 /* Reserve bold-width so weight change doesn't shift layout */
-.stage-rail-label::after {
+.shell-rail-label::after {
   content: attr(data-label);
   display: block;
   font-weight: 600;
@@ -258,10 +258,10 @@
 }
 
 /* ==========================================================================
-   Stage Header (title + SubNav + actions)
+   Shell Header (title + SubNav + actions)
    ========================================================================== */
 
-.stage-header {
+.shell-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -270,21 +270,21 @@
   min-height: 44px;
 }
 
-.stage-header-left {
+.shell-header-left {
   display: flex;
   align-items: center;
   gap: var(--space-8);
   min-width: 0;
 }
 
-.stage-title {
+.shell-title {
   font-size: 17px;
   font-weight: 600;
   letter-spacing: var(--tracking-tight);
   white-space: nowrap;
 }
 
-.stage-header-actions {
+.shell-header-actions {
   display: flex;
   gap: var(--space-3);
   flex-shrink: 0;
@@ -896,7 +896,7 @@
 
 .command-palette-segment.segment-active {
   border-color: var(--surface-selected-border, var(--focus-ring));
-  background: var(--surface-selected-fill, color-mix(in oklch, var(--app-accent) 24%, transparent));
+  background: var(--surface-selected-fill);
 }
 
 .command-palette-breadcrumb {
@@ -1169,7 +1169,7 @@
     animation: none;
   }
   .command-palette-item-icon,
-  .stage-rail-item,
+  .shell-rail-item,
   .sub-nav-item,
   .task-row,
   .action-stack-primary,
@@ -1178,8 +1178,8 @@
   .tooltip-wrap::after {
     transition: none;
   }
-  ::view-transition-old(workspace-stage-main),
-  ::view-transition-new(workspace-stage-main) {
+  ::view-transition-old(workspace-shell-main),
+  ::view-transition-new(workspace-shell-main) {
     animation: none;
   }
   .app-overlay {
@@ -1195,20 +1195,20 @@
   }
 
   /* Route view transitions — crossfade with subtle slide */
-  ::view-transition-old(workspace-stage-main) {
-    animation: stage-out var(--duration-medium) var(--ease-exit) both;
+  ::view-transition-old(workspace-shell-main) {
+    animation: shell-out var(--duration-medium) var(--ease-exit) both;
   }
-  ::view-transition-new(workspace-stage-main) {
-    animation: stage-in var(--duration-medium) var(--ease-enter) both;
+  ::view-transition-new(workspace-shell-main) {
+    animation: shell-in var(--duration-medium) var(--ease-enter) both;
   }
 }
 
-@keyframes stage-out {
+@keyframes shell-out {
   from { opacity: 1; transform: scale(1); filter: blur(0); }
   to   { opacity: 0; transform: scale(0.98); filter: blur(2px); }
 }
 
-@keyframes stage-in {
+@keyframes shell-in {
   from { opacity: 0; transform: scale(1.01); filter: blur(2px); }
   to   { opacity: 1; transform: scale(1); filter: blur(0); }
 }
@@ -3251,24 +3251,24 @@
    ========================================================================== */
 
 @media (max-width: 640px) {
-  .stage-rail {
+  .shell-rail {
     width: 42px;
     min-width: 42px;
   }
 
-  .stage-rail-main {
+  .shell-rail-main {
     padding: 4px 3px 0;
   }
 
-  .stage-rail-label {
+  .shell-rail-label {
     display: none;
   }
 
-  .stage-rail-item {
+  .shell-rail-item {
     padding: 8px 3px;
   }
 
-  .stage-rail-icon {
+  .shell-rail-icon {
     font-size: 14px;
   }
 
