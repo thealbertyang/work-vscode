@@ -1,6 +1,7 @@
-import { window, workspace, ThemeColor, ThemeIcon } from "vscode";
+import { window, workspace, commands, ThemeColor, ThemeIcon } from "vscode";
 import type { Terminal } from "vscode";
 import { parseAgentSessionName, type AgentSessionSource } from "./agent-session";
+import { buildTmuxAttachCommand, shellQuote } from "./agent-terminal-command";
 
 export type AgentTerminalInput = {
   tool?: string;
@@ -8,6 +9,8 @@ export type AgentTerminalInput = {
   story?: string;
   session?: string;
   windowIndex?: string;
+  reuseOnly?: boolean;
+  forceNew?: boolean;
 };
 
 export type AgentTerminalResult = {
@@ -31,26 +34,6 @@ function workspaceRoot(): string | null {
   return folder?.uri.fsPath ?? null;
 }
 
-function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
-}
-
-function buildTmuxAttachCommand(sessionName: string, windowIndex?: string): string {
-  const quotedSession = shellQuote(sessionName);
-  const quotedWindow = windowIndex ? shellQuote(`${sessionName}:${windowIndex}`) : null;
-  const missingMessage = shellQuote(`tmux session not found: ${sessionName}`);
-  return [
-    `if tmux has-session -t ${quotedSession} 2>/dev/null; then`,
-    quotedWindow
-      ? `  exec tmux attach-session -t ${quotedSession} \\; select-window -t ${quotedWindow};`
-      : `  exec tmux attach-session -t ${quotedSession};`,
-    "else",
-    `  printf '%s\\n' ${missingMessage};`,
-    "  exec zsh -i;",
-    "fi",
-  ].join(" ");
-}
-
 function slugifySession(tool: string, role: string, story: string): string {
   return `agents-${tool}-${role}-${story}`
     .toLowerCase()
@@ -61,7 +44,10 @@ function slugifySession(tool: string, role: string, story: string): string {
 }
 
 export function buildAgentTerminalTitle(tool: string, role: string, story: string): string {
-  return [tool.toUpperCase(), role, story].join(" | ");
+  const issueKey = story.match(/^[a-z]+-\d+/i)?.[0]?.toUpperCase() ?? story;
+  const prefix = issueKey.toLowerCase();
+  const existing = window.terminals.filter((t) => t.name.toLowerCase().includes(prefix)).length;
+  return `${tool} · ${role} · ${issueKey} ${existing + 1}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -69,24 +55,40 @@ export function buildAgentTerminalTitle(tool: string, role: string, story: strin
 // ---------------------------------------------------------------------------
 
 const TOOL_COLORS: Record<string, string> = {
-  claude: "charts.green",
-  codex: "charts.blue",
+  claude: "terminal.ansiYellow",
+  codex: "terminal.ansiCyan",
 };
 
-function createTerminal(name: string, root: string, tool: string, role: string, story: string): Terminal {
-  const colorKey = TOOL_COLORS[tool];
-  const color = colorKey ? new ThemeColor(colorKey) : undefined;
-  return window.createTerminal({
-    name,
-    cwd: root,
-    iconPath: new ThemeIcon("hubot", color),
-    color,
-    env: {
-      WORK_STORY: story,
-      WORK_AGENT_ROLE: role,
-      AGENT_TOOL: tool,
-    },
+function makeTerminalId(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+async function createTerminalViaProfile(root: string, tool: string, role: string, story: string): Promise<Terminal> {
+  const terminalId = makeTerminalId();
+  const profileName = tool === "codex" ? "Codex" : "Claude";
+
+  // Set env vars BEFORE creating the terminal so the profile inherits them.
+  const envOverrides: Record<string, string> = {
+    WORK_STORY: story,
+    WORK_AGENT_ROLE: role,
+    AGENT_TOOL: tool,
+    WORK_TERMINAL_ID: terminalId,
+  };
+
+  // Snapshot current terminals to detect the new one.
+  const before = new Set(window.terminals);
+
+  // Launch via profile — this gives us overrideName: false,
+  // so the process (claude/codex) can set the tab title dynamically.
+  await commands.executeCommand("workbench.action.terminal.newWithProfile", {
+    profileName,
+    location: { cwd: root },
+    config: { env: envOverrides },
   });
+
+  // Find the newly created terminal.
+  const created = window.terminals.find((t) => !before.has(t));
+  return created ?? window.terminals[window.terminals.length - 1];
 }
 
 // ---------------------------------------------------------------------------
@@ -142,7 +144,7 @@ function liveTerminalsForStory(story: string): Terminal[] {
  * On repeated calls with multiple terminals for the same story, cycles through them.
  * Creates exactly one new terminal when none exist for the story.
  */
-export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTerminalResult {
+export async function openOrReuseAgentTerminal(input: AgentTerminalInput): Promise<AgentTerminalResult> {
   const root = workspaceRoot();
   if (!root) return { ok: false, error: "no_workspace" };
 
@@ -151,20 +153,56 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
   const story = input.story ?? "work";
   const key = story.toLowerCase();
 
-  const live = liveTerminalsForStory(story);
+  if (!input.forceNew) {
+    const keyPrefix = key.match(/^[a-z]+-\d+/)?.[0] ?? key;
 
-  if (live.length > 0) {
-    // Cycle to the next terminal for this story.
-    const cursor = storyCursor.get(key) ?? 0;
-    const target = live[cursor % live.length];
-    storyCursor.set(key, (cursor + 1) % live.length);
-    target.show(false);
-    return { ok: true, title: target.name, reused: true };
+    // Match by WORK_STORY env var (our terminals) or name fallback (legacy).
+    // Sort by WORK_TERMINAL_ID for stable cycling order.
+    const live = window.terminals
+      .filter((t) => {
+        const env = (t.creationOptions as { env?: Record<string, string> })?.env;
+        if (env?.WORK_STORY?.toLowerCase().includes(keyPrefix)) return true;
+        return t.name.toLowerCase().includes(keyPrefix);
+      })
+      .sort((a, b) => {
+        const envA = (a.creationOptions as { env?: Record<string, string> })?.env;
+        const envB = (b.creationOptions as { env?: Record<string, string> })?.env;
+        const idA = envA?.WORK_TERMINAL_ID ?? "";
+        const idB = envB?.WORK_TERMINAL_ID ?? "";
+        return idA.localeCompare(idB);
+      });
+
+    if (live.length > 0) {
+      // Update the registry with the fresh scan.
+      storyTerminals.set(key, live);
+
+      // Cycle to the next terminal for this story.
+      const cursor = storyCursor.get(key) ?? 0;
+      const idx = cursor % live.length;
+      const target = live[idx];
+      const nextIdx = (idx + 1) % live.length;
+      storyCursor.set(key, nextIdx);
+
+      console.log(`[agent-terminal] cycle story=${story} prefix=${keyPrefix} matched=${live.length} idx=${idx}→${nextIdx} name=${target.name}`);
+
+      // Two-step focus: first ensure terminal panel is visible,
+      // then show the target. show(false) alone silently fails
+      // after 4-5 rapid calls due to VS Code debouncing.
+      void commands.executeCommand("workbench.action.terminal.focus").then(() => {
+        target.show(false);
+      });
+      return { ok: true, title: target.name, reused: true };
+    }
   }
 
-  // No existing terminal — create one.
-  const title = buildAgentTerminalTitle(tool, role, story);
-  const terminal = createTerminal(title, root, tool, role, story);
+  // reuseOnly: don't create if no existing terminal found.
+  if (input.reuseOnly) {
+    return { ok: false, error: "no_terminal" };
+  }
+
+  // No existing terminal — create via profile so overrideName: false
+  // lets the process (claude/codex) set the tab title dynamically.
+  const terminal = await createTerminalViaProfile(root, tool, role, story);
 
   const list = storyTerminals.get(key) ?? [];
   list.push(terminal);
@@ -172,14 +210,7 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
 
   terminal.show(false);
 
-  const sessionName = input.session ?? slugifySession(tool, role, story);
-  const s = shellQuote(sessionName);
-  const selectWindow = input.windowIndex
-    ? ` \\; select-window -t ${shellQuote(`${sessionName}:${input.windowIndex}`)}`
-    : "";
-  terminal.sendText(`tmux new-session -A -s ${s} -c ${shellQuote(root)}${selectWindow}`, true);
-
-  return { ok: true, title, reused: false };
+  return { ok: true, title: terminal.name, reused: false };
 }
 
 /**
@@ -213,17 +244,15 @@ export function revealAgentSession(input: AgentSessionRevealInput): AgentTermina
  * Fallback: launch the agent CLI directly in a new terminal (no tmux).
  * Always creates a new terminal — this is intentional.
  */
-export function launchAgentDirectly(input: AgentTerminalInput): AgentTerminalResult {
+export async function launchAgentDirectly(input: AgentTerminalInput): Promise<AgentTerminalResult> {
   const root = workspaceRoot();
   if (!root) return { ok: false, error: "no_workspace" };
 
   const tool = (input.tool ?? "claude").toLowerCase();
   const role = input.role ?? "worker";
   const story = input.story ?? "work";
-  const title = buildAgentTerminalTitle(tool, role, story);
-  const terminal = createTerminal(title, root, tool, role, story);
+  const terminal = await createTerminalViaProfile(root, tool, role, story);
   terminal.show(false);
-  terminal.sendText(tool, true);
 
-  return { ok: true, title, reused: false };
+  return { ok: true, title: terminal.name, reused: false };
 }
