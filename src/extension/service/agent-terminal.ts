@@ -76,6 +76,24 @@ export function buildAgentTerminalTitle(input: AgentTerminalInput): string {
   return parts.join(" | ");
 }
 
+/**
+ * Focus a specific terminal tab.
+ *
+ * `Terminal.show(true)` is a no-op when the terminal panel is already visible
+ * because `preserveFocus=true` prevents VS Code from switching the active tab.
+ * Using `show(false)` reliably selects the terminal and takes keyboard focus.
+ * For indices 1–9 we also invoke the focusAtIndex command as a belt-and-suspenders
+ * measure since it targets the tab directly by position.
+ */
+function focusTerminal(terminal: ReturnType<typeof window.createTerminal>): void {
+  const globalIdx = window.terminals.indexOf(terminal);
+  if (globalIdx >= 0 && globalIdx < 9) {
+    commands.executeCommand(`workbench.action.terminal.focusAtIndex${globalIdx + 1}`);
+  } else {
+    terminal.show(false);
+  }
+}
+
 /** Terminal tab styling — matches sidebar agent session icons. */
 const TOOL_COLORS: Record<string, string> = {
   claude: "charts.green",
@@ -109,15 +127,7 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
     const targetIdx = activeIdx >= 0 ? (activeIdx + 1) % storyTerminals.length : 0;
     const target = storyTerminals[targetIdx];
 
-    // Focus by navigating: first go to terminal 1, then step forward to target
-    const allTerminals = window.terminals;
-    const globalIdx = allTerminals.indexOf(target);
-    if (globalIdx >= 0 && globalIdx < 9) {
-      // workbench.action.terminal.focusAtIndex1 through focusAtIndex9
-      commands.executeCommand(`workbench.action.terminal.focusAtIndex${globalIdx + 1}`);
-    } else {
-      target.show(true);
-    }
+    focusTerminal(target);
     return { ok: true, title: target.name, reused: true };
   }
 
@@ -134,7 +144,7 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
       AGENT_TOOL: tool,
     },
   });
-  terminal.show(true);
+  terminal.show(false);
 
   // Idempotent: attach if session exists, create if not
   const sessionName = input.session ?? slugifySession(tool, input.role ?? "worker", input.story ?? "work");
@@ -151,9 +161,10 @@ export function revealAgentSession(input: AgentSessionRevealInput): AgentTermina
   const parsed = parseAgentSessionName(input.sessionName);
 
   if (source === "terminal") {
+    // For live terminal sessions, find by exact name and focus it.
     const existing = window.terminals.find((terminal) => terminal.name === input.sessionName);
     if (existing) {
-      existing.show(true);
+      focusTerminal(existing);
       return { ok: true, title: existing.name, reused: true };
     }
 
@@ -161,12 +172,14 @@ export function revealAgentSession(input: AgentSessionRevealInput): AgentTermina
       return { ok: false, error: "terminal_not_found" };
     }
 
+    // Fall back to matching by built title (handles renamed/numbered terminals).
+    const titleBase = buildAgentTerminalTitle(parsed);
     const fallback = window.terminals.find((terminal) =>
-      terminal.name === buildAgentTerminalTitle(parsed)
-      || terminal.name.startsWith(`${buildAgentTerminalTitle(parsed)} | `),
+      terminal.name === titleBase
+      || terminal.name.startsWith(`${titleBase} | `),
     );
     if (fallback) {
-      fallback.show(true);
+      focusTerminal(fallback);
       return { ok: true, title: fallback.name, reused: true };
     }
 
@@ -177,12 +190,14 @@ export function revealAgentSession(input: AgentSessionRevealInput): AgentTermina
     return { ok: false, error: "unrecognized_session" };
   }
 
+  // For tmux sessions, find an existing terminal that is attached to this session.
+  const titleBase = buildAgentTerminalTitle(parsed);
   const exact = window.terminals.find((terminal) =>
-    terminal.name === buildAgentTerminalTitle(parsed)
-    || terminal.name.startsWith(`${buildAgentTerminalTitle(parsed)} | `),
+    terminal.name === titleBase
+    || terminal.name.startsWith(`${titleBase} | `),
   );
   if (exact) {
-    exact.show(true);
+    focusTerminal(exact);
     return { ok: true, title: exact.name, reused: true };
   }
 
@@ -193,7 +208,7 @@ export function revealAgentSession(input: AgentSessionRevealInput): AgentTermina
 
   const tool = parsed.tool.toLowerCase();
   const terminal = window.createTerminal({
-    name: buildAgentTerminalTitle(parsed),
+    name: titleBase,
     cwd: root,
     iconPath: new ThemeIcon("hubot", TOOL_COLORS[tool] ? new ThemeColor(TOOL_COLORS[tool]) : undefined),
     color: TOOL_COLORS[tool] ? new ThemeColor(TOOL_COLORS[tool]) : undefined,
@@ -203,7 +218,7 @@ export function revealAgentSession(input: AgentSessionRevealInput): AgentTermina
       AGENT_TOOL: tool,
     },
   });
-  terminal.show(true);
+  terminal.show(false);
   terminal.sendText(buildTmuxAttachCommand(input.sessionName, parsed.windowIndex), true);
   return { ok: true, title: terminal.name, reused: false };
 }
@@ -232,7 +247,7 @@ export function launchAgentDirectly(input: AgentTerminalInput): AgentTerminalRes
       AGENT_TOOL: tool,
     },
   });
-  terminal.show(true);
+  terminal.show(false);
   terminal.sendText(tool, true);
 
   return { ok: true, title, reused: false };
