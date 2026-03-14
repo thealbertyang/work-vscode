@@ -2,7 +2,7 @@
 id = "work"
 name = "Work"
 namespace = "work"
-defaultRoute = "plan"
+defaultRoute = "/"
 intentScheme = "app"
 
 description = "Config-driven registry for actions, routes, commands, and UI."
@@ -59,6 +59,50 @@ theme = "gold"
 "--app-muted" = "#5B4E2A"
 "--stage-rail-width" = "48px"
 "--stage-rail-active-border" = "var(--vscode-button-background)"
+
+[shell]
+defaultSection = "now"
+
+[shell.sections.now]
+id = "now"
+label = "Now"
+description = "Current work, next action, delegation, and checkpoint."
+icon = "pulse"
+order = 1
+defaultRoute = "/"
+
+[shell.sections.work]
+id = "work"
+label = "Work"
+description = "Lifecycle views, queue, handoffs, and backlog."
+icon = "briefcase"
+order = 2
+defaultRoute = "/execute"
+stageIds = ["plan", "execute", "review", "ship"]
+
+[shell.sections.agents]
+id = "agents"
+label = "Agents"
+description = "Online agents, sessions, and runtime state."
+icon = "hubot"
+order = 3
+defaultRoute = "/agents"
+
+[shell.sections.observe]
+id = "observe"
+label = "Observe"
+description = "Signals, failures, health, and recent activity."
+icon = "pulse"
+order = 4
+defaultRoute = "/observe"
+
+[shell.sections.system]
+id = "system"
+label = "System"
+description = "Docs, registry, settings, and developer tools."
+icon = "gear"
+order = 5
+defaultRoute = "/system/settings"
 
 # --- Stages ---
 

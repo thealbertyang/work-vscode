@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
-import type { UniversalStage } from "@shared/universal";
+import type { ShellSection } from "../lib/shell";
 import { StageRail } from "./StageRail";
 import { StageHeader } from "./StageHeader";
 import { UrlBar } from "./UrlBar";
 
 type StageLayoutProps = {
-  stages: UniversalStage[];
-  activeStage: string;
+  sections: ShellSection[];
+  activeSection: string;
+  currentSection: ShellSection | undefined;
   currentPath: string;
   deepLinkUrl: string;
   onNavigate: (path: string) => void;
@@ -21,19 +22,10 @@ type StageLayoutProps = {
   children: ReactNode;
 };
 
-const STAGE_ICONS: Record<string, string> = {
-  calendar: "codicon-calendar",
-  play: "codicon-play",
-  eye: "codicon-eye",
-  rocket: "codicon-rocket",
-  pulse: "codicon-graph-line",
-  book: "codicon-book",
-  gear: "codicon-gear",
-};
-
 export function StageLayout({
-  stages,
-  activeStage,
+  sections,
+  activeSection,
+  currentSection,
   currentPath,
   deepLinkUrl,
   onNavigate,
@@ -47,16 +39,13 @@ export function StageLayout({
   headerActions,
   children,
 }: StageLayoutProps) {
-  const currentStageConfig = stages.find((s) => s.id === activeStage);
-  const stageIcon = currentStageConfig?.icon ? (STAGE_ICONS[currentStageConfig.icon] ?? "") : "";
-
   return (
     <div className="stage-layout">
-      <StageRail stages={stages} activeStage={activeStage} onNavigate={onNavigate} />
+      <StageRail sections={sections} activeSection={activeSection} onNavigate={onNavigate} />
       <div className="stage-content">
         <UrlBar
           deepLinkUrl={deepLinkUrl}
-          stageIcon={stageIcon}
+          stageIcon={currentSection?.icon}
           onNavigate={onNavigate}
           onCopy={onCopy}
           onRefresh={onRefresh}
@@ -70,7 +59,7 @@ export function StageLayout({
           onGoForward={onGoForward}
         />
         <StageHeader
-          stage={currentStageConfig}
+          section={currentSection}
           currentPath={currentPath}
           onNavigate={onNavigate}
           actions={headerActions}

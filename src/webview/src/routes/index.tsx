@@ -11,7 +11,7 @@ export const Route = createFileRoute("/")({
 function IndexRedirect() {
   const navigate = useNavigate();
   useEffect(() => {
-    navigate({ to: "/plan", replace: true });
+    navigate({ to: "/now", replace: true });
   }, [navigate]);
   return null;
 }

@@ -173,23 +173,18 @@ async function launchStoryAgent(
   if (!issue) return;
 
   const story = issueStorySlug(issue);
-  const title = buildAgentTerminalTitle({ tool: "claude", role: "worker", story });
+
   if (mode === "start") {
-    const existing = vscode.window.terminals.find((terminal) =>
-      terminal.name === title || terminal.name.startsWith(`${title} | `),
-    );
-    if (existing) {
-      existing.show(true);
-      return;
-    }
+    // Cycle existing terminals for this story — never create new
+    const result = openOrReuseAgentTerminal({ tool: "claude", role: "worker", story });
+    if (result.reused) return;
   }
 
-  const action = mode === "start" ? "continue" : "new";
-
+  // "new" mode or no existing terminals — spawn
   try {
     const spawned = await spawnAgentViaWorkMcp({
       tool: "claude",
-      action,
+      action: mode === "start" ? "continue" : "new",
       story,
       role: "worker",
     });
@@ -201,7 +196,6 @@ async function launchStoryAgent(
       windowIndex: spawned.tmuxWindowIndex,
     });
   } catch {
-    // MCP spawn failed — fall back to direct terminal launch
     launchAgentDirectly({ tool: "claude", role: "worker", story });
   }
 }

@@ -669,5 +669,5 @@ export class IssueItem extends vscode.TreeItem {
 }
 type GroupedExplorerRows = {
   area: "work" | "personal";
-  rows: ExplorerIssueRow[];
+  rows: ExplorerRowWithSessions[];
 };

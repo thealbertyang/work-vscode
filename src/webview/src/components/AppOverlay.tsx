@@ -13,6 +13,7 @@ import { executeUniversalAction } from "../lib/execute-universal-action";
 type AppOverlayProps = {
   isConnected: boolean;
   stageLabel: string;
+  currentSection: string;
   currentStage: string;
   lastExtensionBuildAt?: number | null;
   isWebview: boolean;
@@ -35,6 +36,7 @@ type AppOverlayProps = {
 export function AppOverlay({
   isConnected,
   stageLabel,
+  currentSection,
   currentStage,
   lastExtensionBuildAt,
   isWebview,
@@ -113,7 +115,7 @@ export function AppOverlay({
       action: () => onNavigate("/system/docs"),
     });
 
-    if (currentStage === "plan") {
+    if (currentSection === "now" || currentStage === "plan") {
       openDoc("runbooks/automation-triage.md", "Runbook: Automation triage");
       openDoc("docs/reminder-ui.md", "Doc: Reminder UI");
       openDoc("docs/engineer-work-matrix.md", "Doc: Engineer work matrix");
@@ -129,7 +131,7 @@ export function AppOverlay({
     }
 
     return items;
-  }, [currentStage, onNavigate]);
+  }, [currentSection, currentStage, onNavigate]);
 
   // Scroll-based fade at bottom
   useEffect(() => {
@@ -190,13 +192,16 @@ export function AppOverlay({
   const buildContextActions = useCallback(() => {
     const actions: { label: string; icon?: string; onClick: () => void; disabled?: boolean }[] = [];
 
-    if (currentStage === "plan") {
+    if (currentSection === "now") {
+      actions.push({ label: "Refresh", icon: "\u{1F504}", onClick: () => onNavigate("/now") });
+    }
+    if (currentSection === "work" && currentStage === "plan") {
       actions.push({ label: "Refresh", icon: "\u{1F504}", onClick: () => onNavigate("/plan") });
     }
-    if (currentStage === "execute") {
+    if (currentSection === "work" && currentStage === "execute") {
       actions.push({ label: "Refresh", icon: "\u{1F504}", onClick: () => onNavigate("/execute") });
     }
-    if (currentStage === "review") {
+    if (currentSection === "work" && currentStage === "review") {
       if (onOpenIssueInBrowser) {
         actions.push({ label: "Open Browser", icon: "\u{1F517}", onClick: onOpenIssueInBrowser });
       }
@@ -204,7 +209,7 @@ export function AppOverlay({
         actions.push({ label: "Refresh", icon: "\u{1F504}", onClick: onRefreshIssue });
       }
     }
-    if (currentStage === "system") {
+    if (currentSection === "system") {
       if (!isConnected && onSaveToken) {
         actions.push({ label: "Connect", icon: "\u{1F50C}", onClick: onSaveToken });
       }
@@ -218,6 +223,7 @@ export function AppOverlay({
     return actions;
   }, [
     currentStage,
+    currentSection,
     isConnected,
     onNavigate,
     onCopyDeepLink,

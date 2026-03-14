@@ -4,6 +4,7 @@ import type {
   WorkDelegationEntry,
   WorkDelegationProjection,
 } from "work-shared/domain/delegation";
+import type { WorkShellSummary } from "work-shared/domain/shell";
 
 export type WorkMcpAgentTool = "claude" | "codex";
 export type WorkMcpSpawnAction = "new" | "continue" | "resume";
@@ -118,6 +119,14 @@ function formatRequestError(error: unknown): string {
   return String(error);
 }
 
+function responseErrorMessage(payload: unknown): string | null {
+  if (payload && typeof payload === "object" && "error" in payload) {
+    const message = (payload as { error?: unknown }).error;
+    return typeof message === "string" ? message : null;
+  }
+  return null;
+}
+
 async function getJsonViaOrigins<T>(
   path: string,
   opts?: { timeoutMs?: number },
@@ -140,8 +149,8 @@ async function getJsonViaOrigins<T>(
         return response.data as T;
       }
 
-      lastError = typeof response.data?.error === "string"
-        ? `${origin}: ${response.data.error}`
+      lastError = typeof responseErrorMessage(response.data) === "string"
+        ? `${origin}: ${responseErrorMessage(response.data)}`
         : `${origin}: HTTP ${response.status}`;
     } catch (error) {
       lastError = `${origin}: ${formatRequestError(error)}`;
@@ -177,6 +186,12 @@ export async function fetchWorkSnapshot(
   return await readWorkMcpResource<WorkSnapshot>("work://state", opts);
 }
 
+export async function fetchWorkShellSummary(
+  opts?: { timeoutMs?: number },
+): Promise<WorkShellSummary> {
+  return await getJsonViaOrigins<WorkShellSummary>("/api/shell", opts);
+}
+
 export async function spawnAgentViaWorkMcp(
   params: WorkMcpSpawnParams,
 ): Promise<WorkMcpSpawnResult> {
@@ -208,8 +223,8 @@ export async function spawnAgentViaWorkMcp(
         return response.data;
       }
 
-      lastError = typeof response.data?.error === "string"
-        ? `${origin}: ${response.data.error}`
+      lastError = typeof responseErrorMessage(response.data) === "string"
+        ? `${origin}: ${responseErrorMessage(response.data)}`
         : `${origin}: HTTP ${response.status}`;
     } catch (error) {
       lastError = `${origin}: ${formatRequestError(error)}`;

@@ -2,6 +2,7 @@ import type { AutomationRun, AutomationsIndex } from "@shared/automations-contra
 import type { DocContent, DocsIndex } from "@shared/docs-contract";
 import type { JiraIssueSummary, JiraIssueDetails, WebviewState, TriageState } from "@shared/contracts";
 import type { UniversalConfig } from "@shared/universal";
+import type { WorkShellSummary } from "work-shared/domain/shell";
 
 export type TextDocumentLike = {
   fileName?: string;
@@ -47,6 +48,7 @@ export type HandlersType = {
   getAutomations: () => Promise<AutomationsIndex>;
   getAutomationRuns: (automationId: string) => Promise<AutomationRun[]>;
   getUniversalConfig: () => Promise<UniversalConfig>;
+  getWorkShellSummary: () => Promise<WorkShellSummary>;
   getTriageState: () => Promise<TriageState>;
   runTriage: () => Promise<TriageState>;
   getFullConfig: () => Promise<Record<string, unknown>>;

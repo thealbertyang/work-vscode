@@ -4,6 +4,10 @@
     "target": "ES2022",
     "outDir": "out",
     "rootDir": "src",
+    "paths": {
+      "*": ["./*"],
+      "work-shared/*": ["../shared/*"]
+    },
     "lib": ["ES2022"],
     "sourceMap": true,
     "strict": true,

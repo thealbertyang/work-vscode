@@ -12,18 +12,36 @@ export type RouteMeta = {
   segment: string;
   path: string;
   stage?: string;
+  section?: string;
   tabLabel?: string;
   tabOrder?: number;
   tabHidden?: boolean;
 };
 
 export const ROUTE_META = {
+  now: {
+    id: "now",
+    segment: "",
+    path: "/",
+    section: "now",
+    tabHidden: true,
+  },
+  agents: {
+    id: "agents",
+    segment: "agents",
+    path: "/agents",
+    section: "agents",
+    tabLabel: "Agents",
+    tabOrder: 45,
+    tabHidden: true,
+  },
   // --- Plan stage ---
   plan: {
     id: "plan",
     segment: "plan",
     path: "/plan",
     stage: "plan",
+    section: "work",
     tabLabel: "Daily",
     tabOrder: 1,
   },
@@ -32,6 +50,7 @@ export const ROUTE_META = {
     segment: "plan/weekly",
     path: "/plan/weekly",
     stage: "plan",
+    section: "work",
     tabLabel: "Weekly",
     tabOrder: 2,
     tabHidden: true,
@@ -41,6 +60,7 @@ export const ROUTE_META = {
     segment: "plan/monthly",
     path: "/plan/monthly",
     stage: "plan",
+    section: "work",
     tabLabel: "Monthly",
     tabOrder: 3,
     tabHidden: true,
@@ -50,6 +70,7 @@ export const ROUTE_META = {
     segment: "plan/quarterly",
     path: "/plan/quarterly",
     stage: "plan",
+    section: "work",
     tabLabel: "Quarterly",
     tabOrder: 4,
     tabHidden: true,
@@ -59,6 +80,7 @@ export const ROUTE_META = {
     segment: "plan/career",
     path: "/plan/career",
     stage: "plan",
+    section: "work",
     tabLabel: "Career",
     tabOrder: 5,
     tabHidden: true,
@@ -70,6 +92,7 @@ export const ROUTE_META = {
     segment: "execute",
     path: "/execute",
     stage: "execute",
+    section: "work",
     tabLabel: "Tasks",
     tabOrder: 10,
   },
@@ -80,6 +103,7 @@ export const ROUTE_META = {
     segment: "review",
     path: "/review",
     stage: "review",
+    section: "work",
     tabLabel: "Review",
     tabOrder: 20,
   },
@@ -88,6 +112,7 @@ export const ROUTE_META = {
     segment: "review/issues",
     path: "/review/issues/:key",
     stage: "review",
+    section: "work",
     tabHidden: true,
   },
 
@@ -97,6 +122,7 @@ export const ROUTE_META = {
     segment: "ship",
     path: "/ship",
     stage: "ship",
+    section: "work",
     tabLabel: "Ship",
     tabOrder: 30,
   },
@@ -107,6 +133,7 @@ export const ROUTE_META = {
     segment: "observe",
     path: "/observe",
     stage: "observe",
+    section: "observe",
     tabLabel: "Observe",
     tabOrder: 40,
   },
@@ -117,6 +144,7 @@ export const ROUTE_META = {
     segment: "system/registry",
     path: "/system/registry",
     stage: "system",
+    section: "system",
     tabHidden: true,
   },
   systemSettings: {
@@ -124,6 +152,7 @@ export const ROUTE_META = {
     segment: "system/settings",
     path: "/system/settings",
     stage: "system",
+    section: "system",
     tabLabel: "Settings",
     tabOrder: 90,
     tabHidden: true,
@@ -133,6 +162,7 @@ export const ROUTE_META = {
     segment: "system/docs",
     path: "/system/docs",
     stage: "system",
+    section: "system",
     tabLabel: "Docs",
     tabOrder: 93,
     tabHidden: true,
@@ -148,7 +178,7 @@ export const ROUTE_META = {
 
 } as const satisfies Record<string, RouteMeta>;
 
-export const DEFAULT_ROUTE_PATH = "/plan";
+export const DEFAULT_ROUTE_PATH = "/";
 
 // Keep local to avoid a circular dependency with `intent.ts` (which imports from this module).
 const APP_DISPATCH_KINDS = new Set([
@@ -228,12 +258,25 @@ export const stageFromPath = (pathname: string): string => {
   const head = segments[0] || "plan";
   if (head === "system") return "system";
   if (head === "app") return "system";
+  if (head === "agents") return "execute";
+  if (!segments.length) return "plan";
   if (head === "plan") return "plan";
   if (head === "execute") return "execute";
   if (head === "review") return "review";
   if (head === "ship") return "ship";
   if (head === "observe") return "observe";
   return "plan";
+};
+
+export const sectionFromPath = (pathname: string): string => {
+  const segments = pathname.split("/").filter(Boolean);
+  const head = segments[0] ?? "";
+  if (!head) return "now";
+  if (head === "agents") return "agents";
+  if (head === "observe") return "observe";
+  if (head === "system" || head === "app") return "system";
+  if (head === "plan" || head === "execute" || head === "review" || head === "ship") return "work";
+  return "work";
 };
 
 export type HashState = {

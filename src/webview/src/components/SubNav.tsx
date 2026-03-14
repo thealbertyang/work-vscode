@@ -12,7 +12,9 @@ export function SubNav({ items, currentPath, onNavigate }: SubNavProps) {
   return (
     <nav className="sub-nav" aria-label="Sub navigation">
       {sorted.map((item) => {
-        const isActive = currentPath === item.path;
+        const isActive =
+          currentPath === item.path ||
+          (item.path !== "/" && currentPath.startsWith(`${item.path}/`));
         return (
           <button
             key={item.path}

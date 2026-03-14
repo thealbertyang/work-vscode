@@ -81,6 +81,7 @@ export type UniversalRoute = {
   path: string;
   view?: string;
   deepLink?: string;
+  section?: string;
   tabLabel?: string;
   tabOrder?: number;
   tabHidden?: boolean;
@@ -172,6 +173,21 @@ export type UniversalStage = {
   subnav?: Record<string, UniversalSubNavItem>;
 };
 
+export type UniversalShellSection = {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: string;
+  order: number;
+  defaultRoute: string;
+  stageIds?: string[];
+};
+
+export type UniversalShellConfig = {
+  defaultSection: string;
+  sections: Record<string, UniversalShellSection>;
+};
+
 export type UrlStateHistoryMode = "push" | "replace";
 
 export type UrlStateParam = {
@@ -224,6 +240,7 @@ export type UniversalConfig = {
   app: UniversalAppConfig;
   namespaces: Record<string, UniversalNamespace>;
   styles?: UniversalStyleConfig;
+  shell?: UniversalShellConfig;
   stages?: Record<string, UniversalStage>;
   actions?: Record<string, UniversalAction>;
   commands?: Record<string, UniversalCommand>;

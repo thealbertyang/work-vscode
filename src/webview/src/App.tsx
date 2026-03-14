@@ -10,6 +10,7 @@ import type { JiraIssueDetails, WebviewState } from "./types/handlers";
 import type { JiraIssueSummary } from "@shared/contracts";
 import { ROUTE_HINT_WINDOW_KEYS } from "@shared/app-identity";
 import type { UniversalConfig, UniversalStage } from "@shared/universal";
+import type { WorkShellSummary } from "work-shared/domain/shell";
 import { DEFAULT_UNIVERSAL_CONFIG } from "@shared/universal";
 import { createWebviewIpc } from "./ipc";
 import {
@@ -19,7 +20,6 @@ import {
   extractIssueKey,
   normalizeRoutePath,
   routeHintToPath,
-  stageFromPath,
   buildDeepLinkBase,
   buildDeepLinkUrl,
   buildAppDispatcherPath,
@@ -30,6 +30,7 @@ import { StageLayout } from "./components/StageLayout";
 import { AppOverlay } from "./components/AppOverlay";
 import { AppToast, type ToastData } from "./components/AppToast";
 import { getSourceLabel } from "./lib/connection-labels";
+import { buildShellSections, resolveShellSection, resolveWorkStage } from "./lib/shell";
 import { MASKED_SECRET } from "./constants";
 import { toSearchParams } from "./lib/to-search-params";
 import { sanitizeSearchParams } from "./lib/sanitize-query";
@@ -152,10 +153,10 @@ function App({ children }: AppProps) {
   const [issueLoading, setIssueLoading] = useState(false);
   const [issueError, setIssueError] = useState("");
   const [universalConfig, setUniversalConfig] = useState<UniversalConfig | null>(null);
+  const [shellSummary, setShellSummary] = useState<WorkShellSummary | null>(null);
 
   const pathname = normalizeRoutePath(location.pathname || DEFAULT_ROUTE_PATH);
   const searchParams = useMemo(() => sanitizeSearchParams(toSearchParams(location.search)), [location.search]);
-  const currentStage = stageFromPath(pathname);
   const pathSegments = pathname.split("/").filter(Boolean);
   const routeName = pathSegments[0] || "plan";
   const issueKey = extractIssueKey(pathname)?.toUpperCase();
@@ -169,8 +170,23 @@ function App({ children }: AppProps) {
   const issueView = searchParams.get("view") === "compact" ? "compact" : "full";
 
   const stages = useMemo(() => getStagesArray(universalConfig), [universalConfig]);
-  const currentStageConfig = stages.find((s) => s.id === currentStage);
-  const stageLabel = currentStageConfig?.label ?? "Plan";
+  const shellSections = useMemo(() => buildShellSections(stages), [stages]);
+  const currentSectionId = useMemo(() => resolveShellSection(pathname), [pathname]);
+  const currentSection = useMemo(
+    () => shellSections.find((section) => section.id === currentSectionId),
+    [currentSectionId, shellSections],
+  );
+  const currentStage =
+    currentSectionId === "work"
+      ? resolveWorkStage(pathname)
+      : currentSectionId === "now"
+        ? "plan"
+        : currentSectionId;
+  const currentStageConfig = stages.find((stage) => stage.id === currentStage);
+  const stageLabel =
+    currentSectionId === "work" && currentStageConfig
+      ? `Work · ${currentStageConfig.label}`
+      : currentSection?.label ?? "Work";
 
   const loadState = async () => {
     if (!isWebview) {
@@ -217,6 +233,28 @@ function App({ children }: AppProps) {
       }
     };
     void loadUniversalConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, [handlers, isWebview]);
+
+  useEffect(() => {
+    if (!isWebview) {
+      return;
+    }
+    let cancelled = false;
+    handlers
+      .getWorkShellSummary()
+      .then((summary) => {
+        if (!cancelled) {
+          setShellSummary(summary);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setShellSummary(null);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -696,12 +734,15 @@ function App({ children }: AppProps) {
         navigate: navigateTo,
         routeName,
         currentStage,
+        currentSection: currentSectionId,
         universalConfig,
+        shellSummary,
       }}
     >
       <StageLayout
-        stages={stages}
-        activeStage={currentStage}
+        sections={shellSections}
+        activeSection={currentSectionId}
+        currentSection={currentSection}
         currentPath={pathname}
         deepLinkUrl={deepLinkUrl}
         onNavigate={navigateTo}
@@ -717,7 +758,7 @@ function App({ children }: AppProps) {
             <button className="secondary" onClick={() => navigateTo("/system/settings")} disabled={loading}>
               Configure
             </button>
-          ) : currentStage === "review" && issueKey ? (
+          ) : currentSectionId === "work" && currentStage === "review" && issueKey ? (
             <>
               <button type="button" className="secondary" onClick={openIssueInBrowser} disabled={!isWebview}>
                 Open in Jira
@@ -753,6 +794,7 @@ function App({ children }: AppProps) {
       <AppOverlay
         isConnected={status.isConnected}
         stageLabel={stageLabel}
+        currentSection={currentSectionId}
         currentStage={currentStage}
         devMode={state.devMode}
         lastExtensionBuildAt={state.dev?.lastExtensionBuildAt}

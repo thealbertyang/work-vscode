@@ -1,6 +1,5 @@
 import {
   ACTIONS,
-  DEFAULT_ROUTE_PATH,
   IPC_COMMAND_PAYLOAD_SCHEMAS,
   IPC_COMMANDS,
   IPC_EVENT_PAYLOAD_SCHEMAS,
@@ -17,6 +16,7 @@ import type {
   UniversalConfig,
   UniversalEvent,
   UniversalRoute,
+  UniversalShellSection,
   UniversalStage,
   UniversalStorageTarget,
   UniversalView,
@@ -79,6 +79,7 @@ const buildDefaultRoutes = (): Record<string, UniversalRoute> => {
       view: id,
       // Deep links are represented as a path template; the scheme/base is runtime-specific.
       deepLink: `/app/${APP_ID}/route${meta.path}`,
+      section: meta.section,
       tabLabel: meta.tabLabel,
       tabOrder: meta.tabOrder,
       tabHidden: meta.tabHidden,
@@ -227,6 +228,50 @@ const buildDefaultStages = (): Record<string, UniversalStage> => ({
   },
 });
 
+const buildDefaultShellSections = (): Record<string, UniversalShellSection> => ({
+  now: {
+    id: "now",
+    label: "Now",
+    description: "Current work, next action, delegation, and checkpoint.",
+    icon: "pulse",
+    order: 1,
+    defaultRoute: "/",
+  },
+  work: {
+    id: "work",
+    label: "Work",
+    description: "Lifecycle views, queue, handoffs, and related work.",
+    icon: "briefcase",
+    order: 2,
+    defaultRoute: "/execute",
+    stageIds: ["plan", "execute", "review", "ship"],
+  },
+  agents: {
+    id: "agents",
+    label: "Agents",
+    description: "Online agents, terminals, sessions, and runtime state.",
+    icon: "hubot",
+    order: 3,
+    defaultRoute: "/agents",
+  },
+  observe: {
+    id: "observe",
+    label: "Observe",
+    description: "Signals, failures, health, and recent events.",
+    icon: "pulse",
+    order: 4,
+    defaultRoute: "/observe",
+  },
+  system: {
+    id: "system",
+    label: "System",
+    description: "Settings, docs, registry, and developer tools.",
+    icon: "gear",
+    order: 5,
+    defaultRoute: "/system/settings",
+  },
+});
+
 export const buildDefaultTopology = (): TopologyConfig => ({
   defaultDomain: "app",
 
@@ -322,7 +367,7 @@ export const DEFAULT_UNIVERSAL_CONFIG: UniversalConfig = {
     id: APP_ID,
     name: APP_NAME,
     namespace: APP_NAMESPACE,
-    defaultRoute: DEFAULT_ROUTE_PATH,
+    defaultRoute: "/",
     intentScheme: "app",
   },
   namespaces: {
@@ -338,6 +383,10 @@ export const DEFAULT_UNIVERSAL_CONFIG: UniversalConfig = {
     cssVariables: {
       "--app-accent": "#EAD872",
     },
+  },
+  shell: {
+    defaultSection: "now",
+    sections: buildDefaultShellSections(),
   },
   stages: buildDefaultStages(),
   actions: buildDefaultActions(),

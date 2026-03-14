@@ -1,4 +1,4 @@
-import { window, workspace, ThemeColor, ThemeIcon, Uri } from "vscode";
+import { window, workspace, commands, ThemeColor, ThemeIcon, Uri } from "vscode";
 import { parseAgentSessionName, type AgentSessionSource } from "./agent-session";
 
 export type AgentTerminalInput = {
@@ -56,13 +56,22 @@ function slugifySession(tool: string, role: string, story: string): string {
 }
 
 
+/** Running counter per story for unique terminal names. */
+const terminalCounter = new Map<string, number>();
+
 export function buildAgentTerminalTitle(input: AgentTerminalInput): string {
   const tool = (input.tool ?? "claude").toUpperCase();
   const role = input.role ?? "worker";
   const story = input.story ?? "work";
   const parts = [tool, role, story];
   if (input.windowIndex) {
-    parts.push(`w${input.windowIndex}`);
+    parts.push(`#${input.windowIndex}`);
+  } else {
+    // Auto-number to distinguish multiple terminals for same story
+    const key = `${tool}:${role}:${story}`;
+    const n = (terminalCounter.get(key) ?? 0) + 1;
+    terminalCounter.set(key, n);
+    if (n > 1) parts.push(`#${n}`);
   }
   return parts.join(" | ");
 }
@@ -73,8 +82,8 @@ const TOOL_COLORS: Record<string, string> = {
   codex: "charts.blue",
 };
 
-/** Track last focused terminal name per story for round-robin cycling. */
-const lastShownName = new Map<string, string>();
+/** Track cycling counter per story — stable across terminal reordering. */
+const cycleCounter = new Map<string, number>();
 
 export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTerminalResult {
   const root = workspaceRoot();
@@ -83,31 +92,28 @@ export function openOrReuseAgentTerminal(input: AgentTerminalInput): AgentTermin
   }
 
   const title = buildAgentTerminalTitle(input);
-  const exact = window.terminals.find((terminal) =>
-    terminal.name === title || terminal.name.startsWith(`${title} | `),
-  );
-  if (exact) {
-    exact.show(true);
-    return { ok: true, title: exact.name, reused: true };
-  }
-
   const story = input.story ?? "work";
   const storyLower = story.toLowerCase();
 
-  // Find all terminals matching this story (any tool/role)
-  const storyTerminals = input.session
-    ? []
-    : window.terminals.filter((t) => t.name.toLowerCase().includes(storyLower));
+  // Collect all terminals for this story, sorted by name for stable order
+  const storyTerminals = window.terminals
+    .filter((t) => t.name.toLowerCase().includes(storyLower))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   if (storyTerminals.length > 0) {
-    // Cycle: find the one after the last shown terminal
-    const lastName = lastShownName.get(story);
-    const lastIdx = lastName ? storyTerminals.findIndex((t) => t.name === lastName) : -1;
-    const nextIdx = (lastIdx + 1) % storyTerminals.length;
-    const next = storyTerminals[nextIdx];
-    lastShownName.set(story, next.name);
-    next.show(true);
-    return { ok: true, title: next.name, reused: true };
+    // First call: show the first terminal. Subsequent calls: cycle forward.
+    const active = window.activeTerminal;
+    const isStoryActive = active && storyTerminals.some((t) => t === active);
+
+    if (isStoryActive && storyTerminals.length > 1) {
+      // Already on a story terminal — cycle to next
+      commands.executeCommand("workbench.action.terminal.focusNext");
+      return { ok: true, title: "next", reused: true };
+    }
+
+    // Not on a story terminal — jump to the first one
+    storyTerminals[0].show(true);
+    return { ok: true, title: storyTerminals[0].name, reused: true };
   }
 
   const tool = (input.tool ?? "claude").toLowerCase();
