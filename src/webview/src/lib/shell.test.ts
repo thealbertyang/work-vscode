@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { UniversalStage } from "@shared/universal";
+import type { UniversalShellConfig, UniversalStage } from "@shared/universal";
 import { buildShellSections, resolveShellSection, resolveWorkStage } from "./shell";
 
 const STAGES: UniversalStage[] = [
@@ -18,6 +18,24 @@ const STAGES: UniversalStage[] = [
     },
   },
 ];
+
+const SHELL: UniversalShellConfig = {
+  defaultSection: "now",
+  sections: {
+    now: { id: "now", label: "Now", order: 1, defaultRoute: "/now", icon: "pulse" },
+    work: {
+      id: "work",
+      label: "Work",
+      order: 2,
+      defaultRoute: "/work",
+      icon: "briefcase",
+      stageIds: ["plan", "execute", "review", "ship"],
+    },
+    agents: { id: "agents", label: "Agents", order: 3, defaultRoute: "/agents", icon: "hubot" },
+    observe: { id: "observe", label: "Observe", order: 4, defaultRoute: "/observe", icon: "graph-line" },
+    system: { id: "system", label: "System", order: 5, defaultRoute: "/system", icon: "gear" },
+  },
+};
 
 describe("shell navigation model", () => {
   test("groups lifecycle routes under Work", () => {
@@ -43,10 +61,11 @@ describe("shell navigation model", () => {
   });
 
   test("builds Work and System subnav from stage config", () => {
-    const sections = buildShellSections(STAGES);
+    const sections = buildShellSections(SHELL, STAGES);
     const work = sections.find((section) => section.id === "work");
     const system = sections.find((section) => section.id === "system");
 
+    expect(sections.map((section) => section.id)).toEqual(["now", "work", "agents", "observe", "system"]);
     expect(work?.subnav?.overview.path).toBe("/work");
     expect(work?.subnav?.plan.label).toBe("Plan");
     expect(work?.subnav?.review.path).toBe("/review");

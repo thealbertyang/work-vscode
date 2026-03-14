@@ -21,9 +21,16 @@ export type RouteMeta = {
 export const ROUTE_META = {
   now: {
     id: "now",
-    segment: "",
-    path: "/",
+    segment: "now",
+    path: "/now",
     section: "now",
+    tabHidden: true,
+  },
+  work: {
+    id: "work",
+    segment: "work",
+    path: "/work",
+    section: "work",
     tabHidden: true,
   },
   agents: {
@@ -139,6 +146,14 @@ export const ROUTE_META = {
   },
 
   // --- System (gear) ---
+  system: {
+    id: "system",
+    segment: "system",
+    path: "/system",
+    stage: "system",
+    section: "system",
+    tabHidden: true,
+  },
   systemRegistry: {
     id: "systemRegistry",
     segment: "system/registry",
@@ -178,7 +193,7 @@ export const ROUTE_META = {
 
 } as const satisfies Record<string, RouteMeta>;
 
-export const DEFAULT_ROUTE_PATH = "/";
+export const DEFAULT_ROUTE_PATH = "/now";
 
 // Keep local to avoid a circular dependency with `intent.ts` (which imports from this module).
 const APP_DISPATCH_KINDS = new Set([
@@ -256,6 +271,8 @@ export const routeHintToPath = (hint?: RouteHint): string => {
 export const stageFromPath = (pathname: string): string => {
   const segments = pathname.split("/").filter(Boolean);
   const head = segments[0] || "plan";
+  if (head === "now") return "plan";
+  if (head === "work") return "plan";
   if (head === "system") return "system";
   if (head === "app") return "system";
   if (head === "agents") return "execute";
@@ -272,11 +289,13 @@ export const sectionFromPath = (pathname: string): string => {
   const segments = pathname.split("/").filter(Boolean);
   const head = segments[0] ?? "";
   if (!head) return "now";
+  if (head === "now") return "now";
+  if (head === "work") return "work";
   if (head === "agents") return "agents";
   if (head === "observe") return "observe";
   if (head === "system" || head === "app") return "system";
   if (head === "plan" || head === "execute" || head === "review" || head === "ship") return "work";
-  return "work";
+  return "now";
 };
 
 export type HashState = {

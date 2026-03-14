@@ -170,7 +170,7 @@ function App({ children }: AppProps) {
   const issueView = searchParams.get("view") === "compact" ? "compact" : "full";
 
   const stages = useMemo(() => getStagesArray(universalConfig), [universalConfig]);
-  const shellSections = useMemo(() => buildShellSections(stages), [stages]);
+  const shellSections = useMemo(() => buildShellSections(universalConfig?.shell, stages), [stages, universalConfig?.shell]);
   const currentSectionId = useMemo(() => resolveShellSection(pathname), [pathname]);
   const currentSection = useMemo(
     () => shellSections.find((section) => section.id === currentSectionId),

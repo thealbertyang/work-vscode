@@ -235,7 +235,7 @@ const buildDefaultShellSections = (): Record<string, UniversalShellSection> => (
     description: "Current work, next action, delegation, and checkpoint.",
     icon: "pulse",
     order: 1,
-    defaultRoute: "/",
+    defaultRoute: "/now",
   },
   work: {
     id: "work",
@@ -243,7 +243,7 @@ const buildDefaultShellSections = (): Record<string, UniversalShellSection> => (
     description: "Lifecycle views, queue, handoffs, and related work.",
     icon: "briefcase",
     order: 2,
-    defaultRoute: "/execute",
+    defaultRoute: "/work",
     stageIds: ["plan", "execute", "review", "ship"],
   },
   agents: {
@@ -268,7 +268,7 @@ const buildDefaultShellSections = (): Record<string, UniversalShellSection> => (
     description: "Settings, docs, registry, and developer tools.",
     icon: "gear",
     order: 5,
-    defaultRoute: "/system/settings",
+    defaultRoute: "/system",
   },
 });
 
