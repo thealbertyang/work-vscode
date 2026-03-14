@@ -13,6 +13,7 @@ import {
   type ExplorerIssueRow,
   mergeExplorerIssueRows,
 } from "../work/delegation-rows";
+import { collectPickerIssues } from "./issue-picker";
 
 const ISSUE_TYPE_ICONS: Record<string, string> = {
   bug: "bug",
@@ -213,6 +214,7 @@ function selectStorySessions(sessions: AgentSession[]): StorySessionSelection {
 
 export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly emitter = new vscode.EventEmitter<TreeNode | undefined>();
+  private pickerIssues: JiraIssue[] = [];
   readonly onDidChangeTreeData = this.emitter.event;
 
   constructor(
@@ -222,6 +224,10 @@ export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode
 
   refresh(): void {
     this.emitter.fire(undefined);
+  }
+
+  getCachedIssues(): JiraIssue[] {
+    return [...this.pickerIssues];
   }
 
   getTreeItem(element: TreeNode): vscode.TreeItem {
@@ -380,6 +386,12 @@ export class WorkspaceIssuesProvider implements vscode.TreeDataProvider<TreeNode
       bucket.rows.sort(sortRows);
     }
 
+    this.pickerIssues = collectPickerIssues(
+      (["work", "personal"] as const)
+        .map((area) => grouped.get(area))
+        .flatMap((bucket) => bucket?.rows ?? []),
+    );
+
     const rootNodes: TreeNode[] = [
       new AgentsRootItem(sessionsLoad.sessions, sessionsLoad.unavailableReason),
       ...( ["work", "personal"] as const)
@@ -512,6 +524,7 @@ function trimSummary(summary: string): string {
 export class AgentSessionItem extends vscode.TreeItem {
   constructor(public readonly session: AgentSession) {
     super(formatSessionLabel(session.sessionName), vscode.TreeItemCollapsibleState.None);
+    this.id = `agent-session:${session.sessionName}`;
     const attached = session.attachedClients > 0;
     this.description = formatSessionDescription(session);
     this.iconPath = new vscode.ThemeIcon(
@@ -544,6 +557,7 @@ export class AgentsRootItem extends vscode.TreeItem {
     public readonly tmuxUnavailableReason?: string,
   ) {
     super("Agents", vscode.TreeItemCollapsibleState.Expanded);
+    this.id = "agents-root";
     this.onlineSessions = sessions.filter((session) => session.attachedClients > 0);
     this.detachedCount = Math.max(0, sessions.length - this.onlineSessions.length);
     this.description = this.onlineSessions.length > 0 || this.detachedCount > 0
@@ -574,6 +588,7 @@ export class WorkAreaItem extends vscode.TreeItem {
     public readonly tmuxUnavailableReason?: string,
   ) {
     super(explorerAreaLabel(area), vscode.TreeItemCollapsibleState.Expanded);
+    this.id = `work-area:${area}`;
     const activeSessions = rows.reduce(
       (sum, row) => sum + attachedCount(sessionsByStory.get(row.issue.key.toUpperCase()) ?? []),
       0,
@@ -593,6 +608,7 @@ export class StoryAgentSummaryItem extends vscode.TreeItem {
     public readonly hiddenSessions: number,
   ) {
     super("Agent activity", vscode.TreeItemCollapsibleState.Collapsed);
+    this.id = `agent-summary:${issue.key}`;
     const sessionCount = sessions.length;
     const activeCount = attachedCount(sessions);
     const detachedCount = Math.max(0, sessionCount - activeCount);
@@ -608,6 +624,7 @@ export class StoryAgentSummaryItem extends vscode.TreeItem {
 export class AgentInfoItem extends vscode.TreeItem {
   constructor(label: string, issue?: JiraIssue, interactive = false) {
     super(label, vscode.TreeItemCollapsibleState.None);
+    this.id = `agent-info:${issue?.key ?? "root"}`;
     this.iconPath = new vscode.ThemeIcon("info");
     this.contextValue = interactive ? "workAgentInfoNoActivity" : "workAgentInfo";
     if (interactive && issue) {
@@ -624,6 +641,7 @@ export class AgentInfoItem extends vscode.TreeItem {
 export class DelegationInfoItem extends vscode.TreeItem {
   constructor(public readonly delegation: DelegationIndexItem) {
     super("Delegation", vscode.TreeItemCollapsibleState.None);
+    this.id = `delegation-info:${delegation.storyKey ?? delegation.workId}`;
     this.description = delegationSummaryLabel(delegation);
     this.iconPath = new vscode.ThemeIcon("tasklist");
     this.contextValue = "workDelegationInfo";
@@ -644,6 +662,7 @@ export class IssueItem extends vscode.TreeItem {
     public readonly source: ExplorerIssueRow["source"] = "jira",
   ) {
     super(`${issue.key}: ${trimSummary(issue.summary)}`, vscode.TreeItemCollapsibleState.Collapsed);
+    this.id = `issue:${issue.key}`;
     this.description = formatIssueDescription(issue, sessions, delegation, source);
     this.iconPath = issueIcon(issue.issueType, issue.status);
     // resourceUri links this item to the AgentDecorationProvider via the
