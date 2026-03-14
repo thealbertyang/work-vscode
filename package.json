@@ -49,7 +49,7 @@
 		"lint": "oxlint src/extension src/webview/src",
 		"format": "oxfmt -w src/extension src/webview/src",
 		"package": "rm -rf node_modules/.old_modules-* && NODE_OPTIONS=\"--require ./scripts/patch-os-cpus.cjs\" vsce package --out work.vsix --allow-missing-repository --skip-license --no-dependencies",
-		"install:ext": "bun run build && bun run package && code-insiders --uninstall-extension albertyang.work 2>/dev/null; code-insiders --install-extension work.vsix --force",
+			"install:ext": "bun run build && bun run package && code-insiders --uninstall-extension albertyang.workspace 2>/dev/null; code-insiders --uninstall-extension albertyang.work 2>/dev/null; code-insiders --install-extension work.vsix --force",
 		"release": "bash ./scripts/release.sh patch",
 		"release:minor": "bash ./scripts/release.sh minor",
 		"vscode:prepublish": "NODE_OPTIONS= bun run build"

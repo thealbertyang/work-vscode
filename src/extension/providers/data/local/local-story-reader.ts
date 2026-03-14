@@ -56,11 +56,11 @@ export class LocalStoryReader {
   read(key: string): LocalStory | null {
     const [project] = key.split("-");
     if (!project) return null;
-    const projectDir = path.join(this.storiesDir, project.toUpperCase());
-    const candidates = [
-      path.join(projectDir, key.toUpperCase(), "state.json"),
-      path.join(projectDir, `${key.toUpperCase()}.json"),
-    ];
+	    const projectDir = path.join(this.storiesDir, project.toUpperCase());
+	    const candidates = [
+	      path.join(projectDir, key.toUpperCase(), "state.json"),
+	      path.join(projectDir, `${key.toUpperCase()}.json`),
+	    ];
     for (const filePath of candidates) {
       try {
         const parsed = JSON.parse(fs.readFileSync(filePath, "utf-8")) as unknown;
