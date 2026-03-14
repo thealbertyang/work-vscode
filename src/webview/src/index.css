@@ -150,6 +150,28 @@
   /* ── Progress ── */
   --progress-bg: var(--vscode-progressBar-background, var(--accent));
 
+  /* ── Semantic aliases for shell/system surfaces ── */
+  --color-role-accent: var(--accent);
+  --color-role-accent-muted: color-mix(in oklch, var(--color-role-accent) 38%, var(--text-secondary));
+  --nav-rail-width: 48px;
+  --surface-selected-border: var(--accent);
+  --surface-selected-fill: color-mix(in oklch, var(--color-role-accent) 18%, transparent);
+  --surface-selected-fill-strong: color-mix(in oklch, var(--color-role-accent) 28%, transparent);
+
+  /* Backward-compatible aliases while old component names are removed */
+  --app-accent: var(--color-role-accent);
+  --app-muted: var(--color-role-accent-muted);
+  --stage-rail-width: var(--nav-rail-width);
+  --stage-rail-active-border: var(--surface-selected-border);
+
+  /* ── Semantic token colors for naming/system views ── */
+  --token-domain-publisher: var(--text-secondary);
+  --token-domain-domain: var(--chart-blue);
+  --token-domain-noun: var(--chart-green);
+  --token-domain-verb: var(--chart-orange);
+  --token-domain-separator: var(--text-secondary);
+  --token-domain-literal: var(--text-primary);
+
   /* ═══════════════════════════════════════════════════════════════════════
      1B. Liquid Glass Variants (3-tier)
      ═══════════════════════════════════════════════════════════════════════ */

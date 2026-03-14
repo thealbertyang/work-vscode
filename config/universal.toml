@@ -2,7 +2,7 @@
 id = "work"
 name = "Work"
 namespace = "work"
-defaultRoute = "/"
+defaultRoute = "/now"
 intentScheme = "app"
 
 description = "Config-driven registry for actions, routes, commands, and UI."
@@ -55,10 +55,10 @@ description = "Installed extension"
 theme = "gold"
 
 [styles.cssVariables]
-"--app-accent" = "#EAD872"
-"--app-muted" = "#5B4E2A"
-"--stage-rail-width" = "48px"
-"--stage-rail-active-border" = "var(--vscode-button-background)"
+"--color-role-accent" = "oklch(0.72 0.17 58)"
+"--color-role-accent-muted" = "oklch(0.43 0.06 48)"
+"--nav-rail-width" = "48px"
+"--surface-selected-border" = "var(--vscode-button-background)"
 
 [shell]
 defaultSection = "now"

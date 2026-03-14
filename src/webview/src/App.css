@@ -40,12 +40,12 @@
 }
 
 /* ==========================================================================
-   Stage Rail (left column, 52px)
+   Shell Rail (left column, width comes from semantic tokens)
    ========================================================================== */
 
 .stage-rail {
-  width: var(--stage-rail-width, 74px);
-  min-width: var(--stage-rail-width, 74px);
+  width: var(--nav-rail-width, var(--stage-rail-width, 48px));
+  min-width: var(--nav-rail-width, var(--stage-rail-width, 48px));
   display: flex;
   flex-direction: column;
   background: var(--glass-regular-bg);
@@ -97,15 +97,19 @@
 }
 
 .stage-rail-active {
-  background: var(--glass-tint-subtle);
-  box-shadow: var(--glass-edge-active);
+  background: var(--surface-selected-fill, var(--glass-tint-subtle));
+  box-shadow:
+    0 0 0 1px var(--surface-selected-border, var(--stage-rail-active-border, var(--focus-ring))),
+    var(--glass-edge-active);
   color: var(--text-primary);
   font-weight: 600;
 }
 
 .stage-rail-active:hover {
-  background: var(--glass-tint-medium);
-  box-shadow: var(--glass-edge-active-hover);
+  background: var(--surface-selected-fill-strong, var(--glass-tint-medium));
+  box-shadow:
+    0 0 0 1px var(--surface-selected-border, var(--stage-rail-active-border, var(--focus-ring))),
+    var(--glass-edge-active-hover);
 }
 
 .stage-rail-item:focus-visible {
@@ -891,8 +895,8 @@
 }
 
 .command-palette-segment.segment-active {
-  border-color: color-mix(in oklch, var(--app-accent, #EAD872) 70%, var(--vscode-editorWidget-border, #d0d7de));
-  background: color-mix(in oklch, var(--app-accent, #EAD872) 24%, transparent);
+  border-color: var(--surface-selected-border, var(--focus-ring));
+  background: var(--surface-selected-fill, color-mix(in oklch, var(--app-accent) 24%, transparent));
 }
 
 .command-palette-breadcrumb {

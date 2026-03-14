@@ -367,7 +367,7 @@ export const DEFAULT_UNIVERSAL_CONFIG: UniversalConfig = {
     id: APP_ID,
     name: APP_NAME,
     namespace: APP_NAMESPACE,
-    defaultRoute: "/",
+    defaultRoute: "/now",
     intentScheme: "app",
   },
   namespaces: {
@@ -381,7 +381,10 @@ export const DEFAULT_UNIVERSAL_CONFIG: UniversalConfig = {
   styles: {
     theme: "default",
     cssVariables: {
-      "--app-accent": "#EAD872",
+      "--color-role-accent": "oklch(0.72 0.17 58)",
+      "--color-role-accent-muted": "oklch(0.43 0.06 48)",
+      "--nav-rail-width": "48px",
+      "--surface-selected-border": "var(--vscode-button-background)",
     },
   },
   shell: {
