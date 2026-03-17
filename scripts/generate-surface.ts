@@ -36,7 +36,7 @@ for (const [_key, method] of Object.entries(CONTRACTS.rpc)) {
     project: PROJECT,
     source: "src/shared/contracts/commands.ts",
     spec: "contract",
-    access: { scope: "session", visibility: "internal", platforms: ["host", "client"] },
+    access: { scope: "session", visibility: "internal", platforms: ["server", "client"] },
   });
 }
 
@@ -66,7 +66,7 @@ for (const [_key, name] of Object.entries(CONTRACTS.ipc.events)) {
     project: PROJECT,
     source: "src/shared/contracts/ipc.ts",
     spec: "contract",
-    access: { scope: "session", visibility: "internal", platforms: ["host", "client"] },
+    access: { scope: "session", visibility: "internal", platforms: ["server", "client"] },
   });
 }
 
@@ -80,7 +80,7 @@ for (const [_key, name] of Object.entries(CONTRACTS.ipc.commands)) {
     project: PROJECT,
     source: "src/shared/contracts/ipc.ts",
     spec: "contract",
-    access: { scope: "session", visibility: "internal", platforms: ["host", "client"] },
+    access: { scope: "session", visibility: "internal", platforms: ["server", "client"] },
   });
 }
 
