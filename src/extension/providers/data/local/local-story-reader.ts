@@ -14,35 +14,31 @@ export interface LocalStory {
   syncedAt: string | null;
 }
 
-function normalizeStory(raw: unknown, fallbackKey: string): LocalStory | null {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-  const value = raw as Record<string, unknown>;
-  const key = typeof value.key === "string" && value.key.trim() ? value.key.trim().toUpperCase() : fallbackKey;
-  const projectKey = typeof value.projectKey === "string" && value.projectKey.trim()
-    ? value.projectKey.trim().toUpperCase()
+/** Map a raw state.json to the LocalStory shape consumed by the VS Code tree view. */
+function stateToLocalStory(raw: Record<string, unknown>, fallbackKey: string): LocalStory | null {
+  if (!raw || typeof raw !== "object") return null;
+  const key = typeof raw.key === "string" && raw.key.trim() ? raw.key.trim().toUpperCase() : fallbackKey;
+  const projectKey = typeof raw.projectKey === "string" && raw.projectKey.trim()
+    ? raw.projectKey.trim().toUpperCase()
     : key.split("-")[0] ?? "DEV";
-  const workStatus =
-    typeof value.workStatus === "string" && value.workStatus.trim()
-      ? value.workStatus.trim()
-      : typeof value.queue === "string" && value.queue.trim()
-        ? value.queue.trim()
-        : "inbox";
+  const phase = typeof raw.phase === "string" ? raw.phase : typeof raw.status === "string" ? raw.status : "inbox";
 
   return {
     key,
     projectKey,
-    status: typeof value.status === "string" ? value.status : "Unknown",
-    workStatus,
-    queue: workStatus,
-    assignee: typeof value.assignee === "string" ? value.assignee : null,
-    summary: typeof value.summary === "string" ? value.summary : key,
-    updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : null,
-    syncedAt: typeof value.syncedAt === "string" ? value.syncedAt : null,
+    status: phase,
+    workStatus: phase,
+    queue: phase,
+    assignee: typeof raw.assignee === "string" ? raw.assignee
+      : (raw.focus as Record<string, unknown>)?.actor as string ?? null,
+    summary: typeof raw.summary === "string" ? raw.summary : key,
+    updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
+    syncedAt: typeof raw.syncedAt === "string" ? raw.syncedAt : null,
   };
 }
 
 /**
- * Reads local story snapshots from $WORK_STORIES_ROOT/{PROJECT}/{KEY}/state.json.
+ * Reads local story state from $WORK_STORIES_ROOT/{PROJECT}/{KEY}/state.json.
  * Source of truth for agent-side decorations — zero Jira API calls.
  */
 export class LocalStoryReader {
@@ -57,18 +53,19 @@ export class LocalStoryReader {
   read(key: string): LocalStory | null {
     const [project] = key.split("-");
     if (!project) return null;
-	    const projectDir = path.join(this.storiesDir, project.toUpperCase());
-	    const candidates = [
-	      path.join(projectDir, key.toUpperCase(), "state.json"),
-	      path.join(projectDir, `${key.toUpperCase()}.json`),
-	    ];
-    for (const filePath of candidates) {
-      try {
-        const parsed = JSON.parse(fs.readFileSync(filePath, "utf-8")) as unknown;
-        const story = normalizeStory(parsed, key.toUpperCase());
-        if (story) return story;
-      } catch {}
-    }
+    const projectDir = path.join(this.storiesDir, project.toUpperCase());
+    // Scan for directory matching key (e.g., DEV-0001-slug/)
+    try {
+      for (const entry of fs.readdirSync(projectDir)) {
+        if (entry === key.toUpperCase() || entry.toUpperCase().startsWith(`${key.toUpperCase()}-`)) {
+          const statePath = path.join(projectDir, entry, "state.json");
+          if (fs.existsSync(statePath)) {
+            const parsed = JSON.parse(fs.readFileSync(statePath, "utf-8")) as Record<string, unknown>;
+            return stateToLocalStory(parsed, key.toUpperCase());
+          }
+        }
+      }
+    } catch {}
     return null;
   }
 
@@ -76,34 +73,27 @@ export class LocalStoryReader {
     const results: LocalStory[] = [];
     try {
       if (!fs.existsSync(this.storiesDir)) return results;
-      for (const entry of fs.readdirSync(this.storiesDir, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        const dir = path.join(this.storiesDir, entry.name);
-        for (const file of fs.readdirSync(dir, { withFileTypes: true })) {
-          const filePath = file.isDirectory()
-            ? path.join(dir, file.name, "state.json")
-            : file.isFile() && file.name.endsWith(".json")
-              ? path.join(dir, file.name)
-              : "";
-          if (!filePath) continue;
-          try {
-            const raw = JSON.parse(fs.readFileSync(filePath, "utf-8")) as unknown;
-            const fallbackKey = file.isDirectory()
-              ? file.name.toUpperCase()
-              : path.basename(file.name, ".json").toUpperCase();
-            const story = normalizeStory(raw, fallbackKey);
-            if (story) results.push(story);
-          } catch {}
-        }
+      for (const project of fs.readdirSync(this.storiesDir)) {
+        if (project.startsWith(".")) continue;
+        const projectDir = path.join(this.storiesDir, project);
+        try {
+          for (const entry of fs.readdirSync(projectDir)) {
+            if (entry.startsWith(".")) continue;
+            const statePath = path.join(projectDir, entry, "state.json");
+            if (!fs.existsSync(statePath)) continue;
+            try {
+              const raw = JSON.parse(fs.readFileSync(statePath, "utf-8")) as Record<string, unknown>;
+              const story = stateToLocalStory(raw, entry.toUpperCase());
+              if (story && story.status !== "done") results.push(story);
+            } catch {}
+          }
+        } catch {}
       }
     } catch {}
     return results;
   }
 
-  /**
-   * Watch story files for changes. Calls onChange with the issue key whenever
-   * a story file is created, changed, or deleted. Returns a disposable.
-   */
+  /** Watch story files for changes. Returns a disposable. */
   watch(onChange: (key: string) => void): vscode.Disposable {
     const pattern = new vscode.RelativePattern(
       vscode.Uri.file(this.storiesDir),
@@ -111,11 +101,7 @@ export class LocalStoryReader {
     );
     const watcher = vscode.workspace.createFileSystemWatcher(pattern);
     const handle = (uri: vscode.Uri) => {
-      if (path.basename(uri.fsPath).toLowerCase() === "state.json") {
-        onChange(path.basename(path.dirname(uri.fsPath)).toUpperCase());
-        return;
-      }
-      onChange(path.basename(uri.fsPath, ".json").toUpperCase());
+      onChange(path.basename(path.dirname(uri.fsPath)).toUpperCase());
     };
     const subs = [
       watcher.onDidChange(handle),
