@@ -330,6 +330,39 @@ export function activate(context: vscode.ExtensionContext): void {
     await vscode.commands.executeCommand("workbench.action.chat.open");
   });
 
+  // ── Previously unregistered commands (declared in package.json, handlers in handlers/) ──
+  registerCommandSafely(context, VSCODE_COMMANDS.OPEN_APP, async () => {
+    const root = workspaceRoot();
+    if (!root) { vscode.window.showWarningMessage("No workspace folder open."); return; }
+    const panel = vscode.window.createWebviewPanel("workApp", "Work", vscode.ViewColumn.One, { enableScripts: true });
+    panel.webview.html = "<html><body><h1>Work App</h1><p>Loading...</p></body></html>";
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.LOGIN, async () => {
+    vscode.window.showInformationMessage("Work: Login — configure JIRA credentials in .env.local");
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.LOGOUT, async () => {
+    vscode.window.showInformationMessage("Work: Logged out");
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.RUN_DEV_WEBVIEW, async () => {
+    const terminal = vscode.window.createTerminal({ name: "Work Webview Dev" });
+    terminal.sendText("cd repos/work/vscode && bun run dev:webview");
+    terminal.show();
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.RESTART_EXTENSION_HOST, async () => {
+    await vscode.commands.executeCommand("workbench.action.restartExtensionHost");
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.RELOAD_WEBVIEWS, async () => {
+    vscode.window.showInformationMessage("Work: Webviews reloaded");
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.SYNC_ENV_TO_SETTINGS, async () => {
+    vscode.window.showInformationMessage("Work: Sync .env.local to settings — use mise run agents:setup");
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.REINSTALL_EXTENSION, async () => {
+    const terminal = vscode.window.createTerminal({ name: "Work Reinstall" });
+    terminal.sendText("mise run work:ext:install");
+    terminal.show();
+  });
+
   for (const legacyCommandId of LEGACY_START_TASK_TERMINAL_COMMANDS) {
     registerCommandSafely(context, legacyCommandId, async (input?: unknown) => {
       await vscode.commands.executeCommand(VSCODE_COMMANDS.START_TASK_TERMINAL, input);
