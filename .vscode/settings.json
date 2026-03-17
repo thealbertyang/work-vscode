@@ -1,0 +1,4 @@
+{
+  "swift.searchSubfoldersForPackages": false,
+  "swift.disableSwiftPackageManagerIntegration": true
+}

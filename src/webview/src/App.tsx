@@ -10,7 +10,7 @@ import type { JiraIssueDetails, WebviewState } from "./types/handlers";
 import type { JiraIssueSummary } from "@shared/contracts";
 import { ROUTE_HINT_WINDOW_KEYS } from "@shared/app-identity";
 import type { UniversalConfig, UniversalStage } from "@shared/universal";
-import type { WorkShellSummary } from "work-shared/domain/shell";
+import type { WorkAppSummary } from "work-shared/domain/app";
 import { DEFAULT_UNIVERSAL_CONFIG } from "@shared/universal";
 import { createWebviewIpc } from "./ipc";
 import {
@@ -154,7 +154,7 @@ function App({ children }: AppProps) {
   const [issueLoading, setIssueLoading] = useState(false);
   const [issueError, setIssueError] = useState("");
   const [universalConfig, setUniversalConfig] = useState<UniversalConfig | null>(null);
-  const [shellSummary, setShellSummary] = useState<WorkShellSummary | null>(null);
+  const [shellSummary, setShellSummary] = useState<WorkAppSummary | null>(null);
 
   const pathname = normalizeRoutePath(location.pathname || DEFAULT_ROUTE_PATH);
   const searchParams = useMemo(() => sanitizeSearchParams(toSearchParams(location.search)), [location.search]);
@@ -286,7 +286,7 @@ function App({ children }: AppProps) {
     }
     let cancelled = false;
     handlers
-      .getWorkShellSummary()
+      .getWorkAppSummary()
       .then((summary) => {
         if (!cancelled) {
           setShellSummary(summary);

@@ -4,7 +4,7 @@ import type {
   WorkDelegationEntry,
   WorkDelegationProjection,
 } from "work-shared/domain/delegation";
-import type { WorkShellSummary } from "work-shared/domain/shell";
+import type { WorkAppSummary } from "work-shared/domain/app";
 
 export type WorkMcpAgentTool = "claude" | "codex";
 export type WorkMcpSpawnAction = "new" | "continue" | "resume";
@@ -196,10 +196,10 @@ export async function fetchWorkSnapshot(
   return await readWorkMcpResource<WorkSnapshot>("work://state", opts);
 }
 
-export async function fetchWorkShellSummary(
+export async function fetchWorkAppSummary(
   opts?: { timeoutMs?: number },
-): Promise<WorkShellSummary> {
-  return await getJsonViaOrigins<WorkShellSummary>("/api/shell", opts);
+): Promise<WorkAppSummary> {
+  return await getJsonViaOrigins<WorkAppSummary>("/api/app", opts);
 }
 
 export async function spawnAgentViaWorkMcp(

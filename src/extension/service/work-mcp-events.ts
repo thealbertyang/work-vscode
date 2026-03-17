@@ -77,7 +77,7 @@ export class WorkMcpEventListener implements Disposable {
 
       const session = typeof data.session === "string" ? data.session : "";
       const windowIndex = normalizeWindowIndex(data.windowIndex ?? data.window);
-      log(`[work-mcp-events] terminal:open session=${session} w=${windowIndex ?? "-"}`);
+      log(`[work-mcp-events] terminal:open session=${session} w=${windowIndex ?? "-"} endpoint=${this.endpoints[this.endpointIndex]} ts=${Date.now()}`);
 
       void commands.executeCommand(VSCODE_COMMANDS.OPEN_AGENT_TERMINAL, {
         tool: data.tool,

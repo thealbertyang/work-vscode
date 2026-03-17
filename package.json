@@ -166,7 +166,7 @@
 			"viewsWelcome": [
 				{
 					"view": "workIssues",
-					"contents": "Sign in to Jira to view your sprint issues.\\n[Open App](command:work.openApp)"
+					"contents": "Sign in to Jira to view your sprint issues.\n\n[Open App](command:work.openApp)"
 				}
 			],
 		"menus": {

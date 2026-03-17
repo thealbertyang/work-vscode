@@ -49,8 +49,9 @@ export class LocalStoryReader {
   private readonly storiesDir: string;
 
   constructor(workspacePath: string) {
-    const workNamespace = process.env.WORK_NAMESPACE?.trim() || "_";
-    this.storiesDir = process.env.WORK_STORIES_ROOT?.trim() || path.join(workspacePath, workNamespace, "work", "stories");
+    const workHome = process.env.WORK_HOME?.trim()
+      || (process.env.LIFECYCLE_HOME?.trim() ? path.join(process.env.LIFECYCLE_HOME.trim(), "work") : path.join(workspacePath, "_", "work"));
+    this.storiesDir = process.env.WORK_STORIES_ROOT?.trim() || path.join(workHome, "stories");
   }
 
   read(key: string): LocalStory | null {

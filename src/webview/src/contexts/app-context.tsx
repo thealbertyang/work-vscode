@@ -3,7 +3,7 @@ import type { ChangeEvent } from "react";
 import type { JiraIssueDetails, WebviewState } from "../types/handlers";
 import type { JiraIssueSummary } from "@shared/contracts";
 import type { UniversalConfig } from "@shared/universal";
-import type { WorkShellSummary } from "work-shared/domain/shell";
+import type { WorkAppSummary } from "work-shared/domain/app";
 
 export type FormState = {
   baseUrl: string;
@@ -54,7 +54,7 @@ export type AppContextValue = {
   currentStage: string;
   currentSection: string;
   universalConfig: UniversalConfig | null;
-  shellSummary: WorkShellSummary | null;
+  shellSummary: WorkAppSummary | null;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
