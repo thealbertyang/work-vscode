@@ -330,6 +330,29 @@ export function activate(context: vscode.ExtensionContext): void {
     await vscode.commands.executeCommand("workbench.action.chat.open");
   });
 
+  // Launch an agent from a pre-built script file (written by work-agent or lifecycle spawn).
+  // The script contains env exports + claude -p "prompt" — ready to source.
+  registerCommandSafely(context, "work.launchAgentScript", async (input?: unknown) => {
+    const args = (typeof input === "object" && input !== null) ? input as Record<string, unknown> : {};
+    const scriptPath = typeof args.script === "string" ? args.script : "";
+    const title = typeof args.title === "string" ? args.title : "Agent";
+
+    if (!scriptPath) {
+      vscode.window.showWarningMessage("work.launchAgentScript: no script path provided");
+      return;
+    }
+
+    const root = workspaceRoot();
+    const terminal = vscode.window.createTerminal({
+      name: title,
+      cwd: root || undefined,
+      iconPath: new vscode.ThemeIcon("copilot-large"),
+      color: new vscode.ThemeColor("terminal.ansiYellow"),
+    });
+    terminal.sendText(`source "${scriptPath}"`);
+    terminal.show();
+  });
+
   // ── Previously unregistered commands (declared in package.json, handlers in handlers/) ──
   registerCommandSafely(context, VSCODE_COMMANDS.OPEN_APP, async () => {
     const root = workspaceRoot();
