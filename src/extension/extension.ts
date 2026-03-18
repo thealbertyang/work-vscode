@@ -386,6 +386,49 @@ export function activate(context: vscode.ExtensionContext): void {
     terminal.show();
   });
 
+  // ── File-based IPC: watch for agent launch requests ──
+  // work-agent writes /tmp/work-agent-launch-*.json with { script, title }
+  // The extension picks them up, opens a VS Code terminal, and deletes the request.
+  {
+    const fs = require("fs");
+    const path = require("path");
+    const LAUNCH_DIR = "/tmp";
+    const LAUNCH_PREFIX = "work-agent-launch-";
+
+    const processLaunchRequests = () => {
+      try {
+        const files = fs.readdirSync(LAUNCH_DIR)
+          .filter((f: string) => f.startsWith(LAUNCH_PREFIX) && f.endsWith(".json"));
+        for (const file of files) {
+          const fullPath = path.join(LAUNCH_DIR, file);
+          try {
+            const req = JSON.parse(fs.readFileSync(fullPath, "utf-8"));
+            const script = req.script || "";
+            const title = req.title || "Agent";
+            if (script) {
+              const root = workspaceRoot();
+              const terminal = vscode.window.createTerminal({
+                name: title,
+                cwd: root || undefined,
+                iconPath: new vscode.ThemeIcon("copilot-large"),
+                color: new vscode.ThemeColor("terminal.ansiYellow"),
+              });
+              terminal.sendText(`source "${script}"`);
+              terminal.show();
+              console.log(`[work] launched agent terminal: ${title}`);
+            }
+            fs.unlinkSync(fullPath);
+          } catch {}
+        }
+      } catch {}
+    };
+
+    // Check on activation + every 2 seconds
+    processLaunchRequests();
+    const launchPoller = setInterval(processLaunchRequests, 2000);
+    context.subscriptions.push({ dispose: () => clearInterval(launchPoller) });
+  }
+
   for (const legacyCommandId of LEGACY_START_TASK_TERMINAL_COMMANDS) {
     registerCommandSafely(context, legacyCommandId, async (input?: unknown) => {
       await vscode.commands.executeCommand(VSCODE_COMMANDS.START_TASK_TERMINAL, input);
