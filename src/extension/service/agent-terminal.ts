@@ -78,12 +78,12 @@ function makeTerminalId(): string {
 
 async function createTerminalViaProfile(root: string, tool: string, role: string, story: string, phase?: string): Promise<Terminal> {
   const terminalId = makeTerminalId();
-  const profileName = tool === "codex" ? "Codex" : "Claude";
+  const toolCmd = tool === "codex" ? "codex" : "claude";
   const title = buildAgentTerminalTitle(tool, role, story, phase);
+  const color = TOOL_COLORS[tool] ?? "terminal.ansiYellow";
 
-  // Set env vars BEFORE creating the terminal so the profile inherits them.
-  // Include phase so the process can use it for dynamic updates.
-  const envOverrides: Record<string, string> = {
+  // Env vars inherited by the agent process.
+  const env: Record<string, string> = {
     WORK_STORY: story,
     WORK_AGENT_ROLE: role,
     AGENT_TOOL: tool,
@@ -91,28 +91,22 @@ async function createTerminalViaProfile(root: string, tool: string, role: string
     WORK_TERMINAL_TITLE: title,
   };
   if (phase) {
-    envOverrides.WORK_STORY_PHASE = phase;
+    env.WORK_STORY_PHASE = phase;
   }
 
-  // Snapshot current terminals to detect the new one.
-  const before = new Set(window.terminals);
-
-  // Launch via profile — this gives us overrideName: false,
-  // so the process (claude/codex) can update the tab title dynamically via OSC sequences.
-  await commands.executeCommand("workbench.action.terminal.newWithProfile", {
-    profileName,
-    location: { cwd: root },
-    config: { env: envOverrides },
+  // Create terminal directly with an explicit name so the tab label is set immediately.
+  // shellPath + shellArgs mirrors the "Claude"/"Codex" workspace profiles (zsh -l -c <tool>).
+  // VS Code reads OSC 0 sequences from the pty output, so the running process (claude/codex)
+  // can update the tab title dynamically — e.g., "DEV-012 · 3/8 done".
+  const terminal = window.createTerminal({
+    name: title,
+    shellPath: "zsh",
+    shellArgs: ["-l", "-c", toolCmd],
+    cwd: root,
+    env,
+    iconPath: new ThemeIcon("copilot-large"),
+    color: new ThemeColor(color),
   });
-
-  // Find the newly created terminal.
-  const created = window.terminals.find((t) => !before.has(t));
-  const terminal = created ?? window.terminals[window.terminals.length - 1];
-
-  // Set initial tab title via OSC 0 sequence.
-  // overrideName: false (from profile) lets the running process update it later
-  // (e.g., claude can emit its own OSC title to show "DEV-012 · 3/8 done").
-  setTerminalTitle(terminal, title);
 
   return terminal;
 }
