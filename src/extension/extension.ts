@@ -466,28 +466,18 @@ export function activate(context: vscode.ExtensionContext): void {
     });
   }
 
-  // Work MCP connection status bar — created before try/catch so it always shows
-  log("[work] creating MCP status bar item");
-  const mcpStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-  mcpStatusBar.command = VSCODE_COMMANDS.OPEN_BROWSER;
-  mcpStatusBar.text = "$(sync~spin) Work MCP";
-  mcpStatusBar.show();
-  log("[work] status bar item created and shown");
-  context.subscriptions.push(mcpStatusBar);
-
+  // Wire MCP status bar updates
   const setMcpConnected = () => {
-    mcpStatusBar.text = "$(check) Work MCP";
-    mcpStatusBar.tooltip = "Work MCP: connected";
-    mcpStatusBar.backgroundColor = undefined;
-    mcpStatusBar.show();
+    mcpStatus.text = "$(check) Work";
+    mcpStatus.tooltip = "Work MCP: connected";
+    mcpStatus.backgroundColor = undefined;
+    mcpStatus.command = VSCODE_COMMANDS.OPEN_BROWSER;
   };
   const setMcpDisconnected = () => {
-    mcpStatusBar.text = "$(warning) Work MCP";
-    mcpStatusBar.tooltip = "Work MCP: disconnected — reconnecting...";
-    mcpStatusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
-    mcpStatusBar.show();
+    mcpStatus.text = "$(warning) Work";
+    mcpStatus.tooltip = "Work MCP: disconnected — reconnecting...";
+    mcpStatus.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
   };
-  setMcpDisconnected();
 
   // Connect to WorkMCP WS — also before try/catch so it always reconnects
   const mcpEvents = new WorkMcpEventListener({
