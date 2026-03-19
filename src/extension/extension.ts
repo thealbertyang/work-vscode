@@ -100,6 +100,7 @@ function normalizeAgentTerminalInput(
   tool: string;
   role: string;
   story: string;
+  phase?: string;
   session: string;
   windowIndex?: string;
 } {
@@ -108,6 +109,7 @@ function normalizeAgentTerminalInput(
     tool: (normalizeStringField(params.tool) ?? "claude").toUpperCase(),
     role: normalizeStringField(params.role) ?? "worker",
     story: normalizeStringField(params.story) ?? "work",
+    phase: normalizeStringField(params.phase),
     session: normalizeStringField(params.session) ?? "",
     windowIndex: normalizeStringField(params.windowIndex ?? params.window),
   };
@@ -203,6 +205,8 @@ async function launchStoryAgent(
     if (result.ok) return;
   }
 
+  const phase = issue.status?.toLowerCase().replace(/\s+/g, "-") || undefined;
+
   try {
     // MCP spawns the agent and emits terminal:open via WS.
     // WorkMcpEventListener receives the event and calls OPEN_AGENT_TERMINAL,
@@ -215,7 +219,7 @@ async function launchStoryAgent(
     });
   } catch {
     // MCP unavailable — fall back to direct terminal launch
-    launchAgentDirectly({ tool: "claude", role: "worker", story });
+    launchAgentDirectly({ tool: "claude", role: "worker", story, phase });
   }
 }
 
@@ -343,6 +347,7 @@ export function activate(context: vscode.ExtensionContext): void {
       tool,
       role,
       story,
+      phase,
       session,
       windowIndex,
     } = normalizeAgentTerminalInput(input);
@@ -353,6 +358,7 @@ export function activate(context: vscode.ExtensionContext): void {
       tool,
       role,
       story,
+      phase,
       session,
       windowIndex,
     });

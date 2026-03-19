@@ -7,6 +7,7 @@ export type AgentTerminalInput = {
   tool?: string;
   role?: string;
   story?: string;
+  phase?: string;
   session?: string;
   windowIndex?: string;
   reuseOnly?: boolean;
@@ -43,11 +44,23 @@ function slugifySession(tool: string, role: string, story: string): string {
     .slice(0, 48);
 }
 
-export function buildAgentTerminalTitle(tool: string, role: string, story: string): string {
+export function buildAgentTerminalTitle(tool: string, role: string, story: string, phase?: string): string {
   const issueKey = story.match(/^[a-z]+-\d+/i)?.[0]?.toUpperCase() ?? story;
   const prefix = issueKey.toLowerCase();
   const existing = window.terminals.filter((t) => t.name.toLowerCase().includes(prefix)).length;
-  return `${tool} · ${role} · ${issueKey} ${existing + 1}`;
+  const suffix = existing > 0 ? ` ${existing + 1}` : "";
+  const phaseLabel = phase ? ` · ${phase}` : "";
+  return `${tool} · ${role} · ${issueKey}${phaseLabel}${suffix}`;
+}
+
+/**
+ * Send text to a terminal without executing it (no trailing newline).
+ * Used to pipe raw escape sequences to the pty stdin for title updates.
+ * The OSC 0 sequence sets the terminal tab title when read back from pty output.
+ */
+export function setTerminalTitle(terminal: Terminal, title: string): void {
+  // OSC 0 sets both icon name and window title. shouldExecute=false avoids adding \n.
+  terminal.sendText(`\x1b]0;${title}\x07`, false);
 }
 
 // ---------------------------------------------------------------------------
@@ -63,23 +76,29 @@ function makeTerminalId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-async function createTerminalViaProfile(root: string, tool: string, role: string, story: string): Promise<Terminal> {
+async function createTerminalViaProfile(root: string, tool: string, role: string, story: string, phase?: string): Promise<Terminal> {
   const terminalId = makeTerminalId();
   const profileName = tool === "codex" ? "Codex" : "Claude";
+  const title = buildAgentTerminalTitle(tool, role, story, phase);
 
   // Set env vars BEFORE creating the terminal so the profile inherits them.
+  // Include phase so the process can use it for dynamic updates.
   const envOverrides: Record<string, string> = {
     WORK_STORY: story,
     WORK_AGENT_ROLE: role,
     AGENT_TOOL: tool,
     WORK_TERMINAL_ID: terminalId,
+    WORK_TERMINAL_TITLE: title,
   };
+  if (phase) {
+    envOverrides.WORK_STORY_PHASE = phase;
+  }
 
   // Snapshot current terminals to detect the new one.
   const before = new Set(window.terminals);
 
   // Launch via profile — this gives us overrideName: false,
-  // so the process (claude/codex) can set the tab title dynamically.
+  // so the process (claude/codex) can update the tab title dynamically via OSC sequences.
   await commands.executeCommand("workbench.action.terminal.newWithProfile", {
     profileName,
     location: { cwd: root },
@@ -88,7 +107,14 @@ async function createTerminalViaProfile(root: string, tool: string, role: string
 
   // Find the newly created terminal.
   const created = window.terminals.find((t) => !before.has(t));
-  return created ?? window.terminals[window.terminals.length - 1];
+  const terminal = created ?? window.terminals[window.terminals.length - 1];
+
+  // Set initial tab title via OSC 0 sequence.
+  // overrideName: false (from profile) lets the running process update it later
+  // (e.g., claude can emit its own OSC title to show "DEV-012 · 3/8 done").
+  setTerminalTitle(terminal, title);
+
+  return terminal;
 }
 
 // ---------------------------------------------------------------------------
@@ -202,7 +228,7 @@ export async function openOrReuseAgentTerminal(input: AgentTerminalInput): Promi
 
   // No existing terminal — create via profile so overrideName: false
   // lets the process (claude/codex) set the tab title dynamically.
-  const terminal = await createTerminalViaProfile(root, tool, role, story);
+  const terminal = await createTerminalViaProfile(root, tool, role, story, input.phase);
 
   const list = storyTerminals.get(key) ?? [];
   list.push(terminal);
@@ -251,7 +277,7 @@ export async function launchAgentDirectly(input: AgentTerminalInput): Promise<Ag
   const tool = (input.tool ?? "claude").toLowerCase();
   const role = input.role ?? "worker";
   const story = input.story ?? "work";
-  const terminal = await createTerminalViaProfile(root, tool, role, story);
+  const terminal = await createTerminalViaProfile(root, tool, role, story, input.phase);
   terminal.show(false);
 
   return { ok: true, title: terminal.name, reused: false };

@@ -1,4 +1,6 @@
 import { spawn } from "child_process";
+import { readFileSync, existsSync } from "fs";
+import { join } from "path";
 import {
   commands,
   workspace,
@@ -82,6 +84,47 @@ const workspaceRoot = (): string | null => {
   const folder = workspace.workspaceFolders?.[0];
   return folder?.uri.fsPath ?? null;
 };
+
+/**
+ * Get the current active story key and phase from the work queues.
+ * Reads from $WORK_STATE_ROOT/queues/active.json and the story's state.json.
+ */
+async function getActiveStoryPhase(): Promise<{ key: string; phase: string } | null> {
+  try {
+    // Try to read WORK_STATE_ROOT env var or derive from WORK_HOME
+    const workStateRoot = process.env.WORK_STATE_ROOT
+      || (process.env.WORK_HOME && join(process.env.WORK_HOME, "state"))
+      || (process.env.LIFECYCLE_HOME && join(process.env.LIFECYCLE_HOME, "work", "state"));
+
+    if (!workStateRoot || !existsSync(workStateRoot)) {
+      return null;
+    }
+
+    const activeFile = join(workStateRoot, "queues", "active.json");
+    if (!existsSync(activeFile)) {
+      return null;
+    }
+
+    const active = JSON.parse(readFileSync(activeFile, "utf-8"));
+    if (!active?.key || !active?.storyDir) {
+      return null;
+    }
+
+    const stateFile = join(active.storyDir, "state.json");
+    if (!existsSync(stateFile)) {
+      return null;
+    }
+
+    const state = JSON.parse(readFileSync(stateFile, "utf-8"));
+    return {
+      key: active.key,
+      phase: state.phase ?? "unknown",
+    };
+  } catch {
+    // Silent fallback — phase is optional enhancement
+    return null;
+  }
+}
 
 async function pickValue<T extends string>(
   title: string,
@@ -249,10 +292,15 @@ export const createDevHandlers = ({
       session?: string;
       windowIndex?: string;
     }) => {
+      // Resolve phase from active story for terminal title
+      const activeStory = await getActiveStoryPhase();
+      const phase = activeStory?.phase;
+
       const result = await openOrReuseAgentTerminal({
         tool: params?.tool,
         role: params?.role,
         story: params?.story,
+        phase,
         session: params?.session,
         windowIndex: params?.windowIndex,
       });
@@ -274,6 +322,10 @@ export const createDevHandlers = ({
         return;
       }
 
+      // Resolve phase from active story for terminal title
+      const activeStory = await getActiveStoryPhase();
+      const phase = activeStory?.phase;
+
       try {
         const spawned = await spawnAgentViaWorkMcp({
           tool: metadata.tool,
@@ -286,6 +338,7 @@ export const createDevHandlers = ({
           tool: spawned.tool,
           role: spawned.role,
           story: spawned.story,
+          phase,
           session: spawned.tmuxSession,
           windowIndex: spawned.tmuxWindowIndex,
         });
@@ -295,6 +348,7 @@ export const createDevHandlers = ({
           tool: metadata.tool,
           role: metadata.role,
           story: metadata.story,
+          phase,
         });
       }
     },
