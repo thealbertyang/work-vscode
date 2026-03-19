@@ -1,20 +1,15 @@
 import * as vscode from "vscode";
 import { resolveWorkMcpOrigins } from "./work-mcp-client";
+import { log } from "../providers/data/jira/logger";
 
-const INTEGRATED_BROWSER_OPEN_COMMAND = "workbench.action.browser.open";
-const INTEGRATED_BROWSER_RELOAD_COMMAND = "workbench.action.browser.reload";
-const SIMPLE_BROWSER_SHOW_COMMAND = "simpleBrowser.show";
-const LAST_WORK_BROWSER_URL_STATE_KEY = "work.browser.lastUrl";
-const DEFAULT_WORK_BROWSER_PATH = "/app/now";
+const DEFAULT_WORK_BROWSER_PATH = "/now";
 
-type BrowserTarget =
-  | string
-  | {
-    url?: string;
-    path?: string;
-    section?: string;
-  }
-  | undefined;
+// VS Code Insiders 2026 integrated browser commands (in priority order)
+const BROWSER_COMMANDS = [
+  "integratedBrowser.open",                    // VS Code Insiders 1.110+ (March 2026)
+  "workbench.action.browser.open",             // earlier integrated browser
+  "simpleBrowser.show",                        // fallback
+] as const;
 
 function normalizeBaseUrl(value: string): string {
   return value.trim().replace(/\/+$/, "");
@@ -35,70 +30,69 @@ function preferredWorkBrowserOrigin(): string {
     ?? "https://localhost:4500";
 }
 
-export function resolveWorkBrowserUrl(target?: BrowserTarget): string {
-  if (typeof target === "string") {
+export function resolveWorkBrowserUrl(target?: string): string {
+  if (target) {
     const normalized = normalizePath(target);
     return /^https?:\/\//i.test(normalized)
       ? normalized
       : `${normalizeBaseUrl(preferredWorkBrowserOrigin())}${normalized}`;
   }
-
-  if (target?.url) {
-    return resolveWorkBrowserUrl(target.url);
-  }
-
-  if (target?.section) {
-    return resolveWorkBrowserUrl(`/app/${target.section.trim().replace(/^\/+|\/+$/g, "")}`);
-  }
-
-  if (target?.path) {
-    return resolveWorkBrowserUrl(target.path);
-  }
-
   return `${normalizeBaseUrl(preferredWorkBrowserOrigin())}${DEFAULT_WORK_BROWSER_PATH}`;
 }
 
-async function commandExists(commandId: string): Promise<boolean> {
-  const commands = await vscode.commands.getCommands(true);
-  return commands.includes(commandId);
-}
+async function openUrl(url: string): Promise<void> {
+  const allCommands = await vscode.commands.getCommands(true);
 
-export function getLastWorkBrowserUrl(context: vscode.ExtensionContext): string {
-  return context.workspaceState.get<string>(
-    LAST_WORK_BROWSER_URL_STATE_KEY,
-    resolveWorkBrowserUrl(),
-  ) ?? resolveWorkBrowserUrl();
+  for (const cmd of BROWSER_COMMANDS) {
+    if (allCommands.includes(cmd)) {
+      log(`[browser] opening ${url} via ${cmd}`);
+      try {
+        await vscode.commands.executeCommand(cmd, url);
+        return;
+      } catch (e) {
+        log(`[browser] ${cmd} failed: ${e}`);
+        // try next command
+      }
+    }
+  }
+
+  // All integrated browser commands failed — last resort external browser
+  log(`[browser] no integrated browser available, opening externally: ${url}`);
+  await vscode.env.openExternal(vscode.Uri.parse(url));
 }
 
 export async function openWorkBrowser(
-  context: vscode.ExtensionContext,
-  target?: BrowserTarget,
+  _context: vscode.ExtensionContext,
+  target?: string | { url?: string; path?: string; section?: string },
 ): Promise<string> {
-  const url = resolveWorkBrowserUrl(target);
-  await context.workspaceState.update(LAST_WORK_BROWSER_URL_STATE_KEY, url);
+  let path: string | undefined;
 
-  if (await commandExists(INTEGRATED_BROWSER_OPEN_COMMAND)) {
-    await vscode.commands.executeCommand(INTEGRATED_BROWSER_OPEN_COMMAND, url);
-    return url;
+  if (typeof target === "string") {
+    path = target;
+  } else if (target?.url) {
+    path = target.url;
+  } else if (target?.section) {
+    path = `/${target.section.trim().replace(/^\/+|\/+$/g, "")}`;
+  } else if (target?.path) {
+    path = target.path;
   }
 
-  await vscode.commands.executeCommand(SIMPLE_BROWSER_SHOW_COMMAND, url);
+  const url = resolveWorkBrowserUrl(path);
+  await openUrl(url);
   return url;
 }
 
 export async function refreshWorkBrowser(
   context: vscode.ExtensionContext,
 ): Promise<string> {
-  const url = getLastWorkBrowserUrl(context);
-
-  if (await commandExists(INTEGRATED_BROWSER_RELOAD_COMMAND)) {
+  const allCommands = await vscode.commands.getCommands(true);
+  if (allCommands.includes("workbench.action.browser.reload")) {
     try {
-      await vscode.commands.executeCommand(INTEGRATED_BROWSER_RELOAD_COMMAND);
-      return url;
+      await vscode.commands.executeCommand("workbench.action.browser.reload");
+      return resolveWorkBrowserUrl();
     } catch {
-      // Fall through and reopen the last Work URL.
+      // Fall through and reopen
     }
   }
-
-  return openWorkBrowser(context, { url });
+  return openWorkBrowser(context);
 }

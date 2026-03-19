@@ -1,360 +1,356 @@
 {
-  "name": "work",
-  "displayName": "Work",
-  "version": "0.0.12",
-  "description": "Work view for sprint issues and agent activity.",
-  "categories": [
-    "Other"
-  ],
-  "keywords": [
-    "work",
-    "extension",
-    "issues",
-    "jira",
-    "sprint",
-    "vscode"
-  ],
-  "homepage": "https://marketplace.visualstudio.com/items?itemName=albertyang.work",
-  "bugs": {
-    "url": "https://github.com/thealbertyang/work/issues"
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/thealbertyang/work.git"
-  },
-  "publisher": "albertyang",
-  "main": "./out/extension/extension.js",
-  "activationEvents": [
-    "onStartupFinished",
-    "onView:workIssues",
-    "onCommand:work.refresh",
-    "onCommand:work.refreshStoryTasks",
-    "onCommand:work.startTaskTerminal"
-  ],
-  "workspaces": [
-    "src/webview"
-  ],
-  "scripts": {
-    "dev": "bun run build:host --watch",
-    "dev:ext": "bun run build:host --watch",
-    "dev:webview:template": "bash ./scripts/dev-webview.sh",
-    "generate:app-identity": "bun run scripts/generate-app-identity.ts",
-    "build": "bun run build:ext",
-    "build:ext": "bun run generate:app-identity && bun run build:host",
-    "build:host": "bun build src/extension/extension.ts --outdir out/extension --format=cjs --target=node --external vscode --sourcemap",
-    "build:webview:template": "bash -lc 'cd src/webview && bun run build'",
-    "typecheck": "bun run generate:app-identity && tsgo -p ./",
-    "typecheck:watch": "tsgo -watch -p ./",
-    "lint": "oxlint src/extension src/webview/src",
-    "format": "oxfmt -w src/extension src/webview/src",
-    "package": "rm -rf node_modules/.old_modules-* && NODE_OPTIONS=\"--require ./scripts/patch-os-cpus.cjs\" vsce package --out work.vsix --allow-missing-repository --skip-license --no-dependencies",
-    "install:ext": "bun run build && bun run package && code-insiders --uninstall-extension albertyang.work 2>/dev/null; code-insiders --install-extension work.vsix --force",
-    "release": "bash ./scripts/release.sh patch",
-    "release:minor": "bash ./scripts/release.sh minor",
-    "vscode:prepublish": "echo skipped",
-    "build:ext:full": "bun run build:ext"
-  },
-  "dependencies": {
-    "@jsonrpc-rx/server": "^0.2.1",
-    "axios": "^1.6.7",
-    "node-html-parser": "^7.0.1",
-    "ws": "^8.19.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.11.30",
-    "@types/vscode": "^1.86.0",
-    "@types/ws": "^8.18.1",
-    "@typescript/native-preview": "^7.0.0-dev.20260203.1",
-    "@vitejs/plugin-react-swc": "^4.3.0",
-    "@vscode/vsce": "^3.6.2",
-    "oxfmt": "^0.28.0",
-    "oxlint": "^1.43.0",
-    "typescript": "^5.4.2",
-    "vite": "^7.3.1",
-    "vite-plugin-vscode-webview-hmr": "^1.0.1",
-    "work-shared": "workspace:*"
-  },
-  "contributes": {
-    "commands": [
-      {
-        "command": "work.login",
-        "title": "Work: Login",
-        "icon": "$(settings-gear)"
-      },
-      {
-        "command": "work.restartExtensionHost",
-        "title": "Work: Restart Extension Host"
-      },
-      {
-        "command": "work.openBrowser",
-        "title": "Work: Open Browser",
-        "icon": "$(globe)"
-      },
-      {
-        "command": "work.refreshBrowser",
-        "title": "Work: Refresh Browser",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "work.syncEnvToSettings",
-        "title": "Work: Sync .env.local to Settings"
-      },
-      {
-        "command": "work.reinstallExtension",
-        "title": "Work: Reinstall Extension"
-      },
-      {
-        "command": "work.logout",
-        "title": "Work: Logout"
-      },
-      {
-        "command": "work.refresh",
-        "title": "Work: Refresh Issues"
-      },
-      {
-        "command": "work.refreshStoryTasks",
-        "title": "Work: Refresh Story Tasks",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "work.openIssue",
-        "title": "Work: Open Issue",
-        "icon": "$(go-to-file)"
-      },
-      {
-        "command": "work.startTaskTerminal",
-        "title": "Work: Start Task Terminal",
-        "icon": "$(terminal)"
-      },
-      {
-        "command": "work.openAgentChat",
-        "title": "Work: Open Agent Chat",
-        "icon": "$(comment-discussion)"
-      },
-      {
-        "command": "work.attachAgentSession",
-        "title": "Work: Attach Agent Session",
-        "icon": "$(terminal)"
-      },
-      {
-        "command": "work.startStoryAgent",
-        "title": "Work: Start Story Agent",
-        "icon": "$(play-circle)"
-      },
-      {
-        "command": "work.newStoryAgent",
-        "title": "Work: New Story Agent",
-        "icon": "$(hubot)"
-      },
-      {
-        "command": "work.openAgentTerminal",
-        "title": "Work: Open Agent Terminal",
-        "icon": "$(terminal)"
-      }
-    ],
-    "views": {
-      "explorer": [
-        {
-          "id": "workIssues",
-          "name": "Work",
-          "icon": "resources/work-view.svg"
-        }
-      ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "workIssues",
-        "contents": "Sign in to Jira to view your sprint issues.\\nUse Refresh to update the explorer."
-      }
-    ],
-    "menus": {
-      "view/title": [
-        {
-          "command": "work.openAgentChat",
-          "when": "view == workIssues",
-          "group": "navigation",
-          "icon": "$(comment-discussion)"
-        },
-        {
-          "command": "work.refreshStoryTasks",
-          "when": "view == workIssues",
-          "group": "navigation@2",
-          "icon": "$(refresh)"
-        },
-        {
-          "command": "work.openBrowser",
-          "when": "view == workIssues",
-          "group": "navigation@3",
-          "icon": "$(globe)"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "work.openIssue",
-          "when": "view == workIssues && viewItem == workIssue",
-          "group": "inline",
-          "icon": "$(go-to-file)"
-        },
-        {
-          "command": "work.startStoryAgent",
-          "when": "view == workIssues && viewItem == workIssue",
-          "group": "inline@2",
-          "icon": "$(play-circle)"
-        },
-        {
-          "command": "work.newStoryAgent",
-          "when": "view == workIssues && viewItem == workIssue",
-          "group": "inline@3",
-          "icon": "$(hubot)"
-        },
-        {
-          "command": "work.attachAgentSession",
-          "when": "view == workIssues && viewItem == workAgentSession",
-          "group": "inline",
-          "icon": "$(terminal)"
-        },
-        {
-          "command": "work.startStoryAgent",
-          "when": "view == workIssues && viewItem == workAgentInfoNoActivity",
-          "group": "inline",
-          "icon": "$(play-circle)"
-        },
-        {
-          "command": "work.newStoryAgent",
-          "when": "view == workIssues && viewItem == workAgentInfoNoActivity",
-          "group": "inline@2",
-          "icon": "$(hubot)"
-        },
-        {
-          "command": "work.newStoryAgent",
-          "when": "view == workIssues && viewItem == workAgentSummary",
-          "group": "inline",
-          "icon": "$(hubot)"
-        }
-      ]
-    },
-    "configuration": {
-      "title": "Work",
-      "properties": {
-        "work.baseUrl": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Jira base URL (e.g. https://your-domain.atlassian.net). [Sync from .env.local](command:work.syncEnvToSettings)"
-        },
-        "work.jiraUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Legacy Jira URL setting (use work.baseUrl instead)."
-        },
-        "work.email": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Atlassian account email. [Sync from .env.local](command:work.syncEnvToSettings)"
-        },
-        "work.apiToken": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Atlassian API token. Prefer storing this in .env.local or using the Connect flow. [Sync from .env.local](command:work.syncEnvToSettings)"
-        },
-        "work.jql": {
-          "type": "string",
-          "default": "assignee = currentUser() AND sprint in openSprints() ORDER BY updated DESC",
-          "markdownDescription": "JQL used to load sprint issues. [Sync from .env.local](command:work.syncEnvToSettings)"
-        },
-        "work.maxResults": {
-          "type": "number",
-          "default": 50,
-          "description": "Maximum number of issues to fetch per refresh."
-        },
-        "work.explorer.showDetachedSessions": {
-          "type": "boolean",
-          "default": false,
-          "description": "Show detached tmux sessions in Work Explorer agent activity rows."
-        },
-        "work.explorer.maxSessionsPerStory": {
-          "type": "number",
-          "default": 4,
-          "minimum": 1,
-          "maximum": 20,
-          "description": "Maximum number of agent sessions shown under each story in Work Explorer."
-        },
-        "work.explorer.refreshIntervalMs": {
-          "type": "number",
-          "default": 0,
-          "minimum": 0,
-          "maximum": 300000,
-          "description": "Legacy polling fallback for Work Explorer in milliseconds. Default: 0 because explorer refresh is event-driven."
-        },
-        "work.docsPath": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Optional path to a docs directory containing Markdown files. Used by the Docs tab (e.g. `/path/to/docs`)."
-        },
-        "work.webviewPath": {
-          "type": "string",
-          "default": "",
-          "description": "Template-only local HTML path for the dormant webview scaffold."
-        },
-        "work.webviewServerUrl": {
-          "type": "string",
-          "default": "",
-          "description": "Template-only server URL (e.g. http://localhost:5173) for dormant webview HMR experiments."
-        },
-        "work.policy.identityKind": {
-          "type": "string",
-          "default": "human",
-          "enum": [
-            "human",
-            "ai-agent",
-            "system"
-          ],
-          "enumDescriptions": [
-            "Human operator \u2014 owner/developer roles",
-            "AI agent (Claude Code, Codex, etc.) \u2014 ai-worker role",
-            "System process \u2014 no roles"
-          ],
-          "description": "Identity kind for permission policy evaluation."
-        },
-        "work.policy.identityId": {
-          "type": "string",
-          "default": "",
-          "description": "Optional identity ID for policy evaluation (e.g. your name or agent ID)."
-        },
-        "work.policy.allowJiraWrite": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow write operations to Jira (create/update issues)."
-        },
-        "work.policy.allowJiraComment": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow posting comments to Jira issues."
-        },
-        "work.policy.allowJiraTransition": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow transitioning Jira issue status."
-        },
-        "work.policy.allowLocalWrite": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow writing to local `$WORK_HOME/` files."
-        },
-        "work.policy.allowAgentDispatch": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow dispatching tasks to AI agents."
-        },
-        "work.policy.allowAgentTerminate": {
-          "type": "boolean",
-          "default": false,
-          "markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow terminating AI agent sessions."
-        }
-      }
-    }
-  },
-  "engines": {
-    "vscode": "^1.86.0"
-  }
+	"name": "work",
+	"displayName": "Work",
+	"version": "0.0.13",
+	"description": "Work view for sprint issues and agent activity.",
+	"categories": [
+		"Other"
+	],
+	"keywords": [
+		"work",
+		"extension",
+		"issues",
+		"jira",
+		"sprint",
+		"vscode"
+	],
+	"homepage": "https://marketplace.visualstudio.com/items?itemName=albertyang.work",
+	"bugs": {
+		"url": "https://github.com/thealbertyang/work/issues"
+	},
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/thealbertyang/work.git"
+	},
+	"publisher": "albertyang",
+	"main": "./out/extension/extension.js",
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"workspaces": [
+		"src/webview"
+	],
+	"scripts": {
+		"dev": "bun run build:host --watch",
+		"dev:ext": "bun run build:host --watch",
+		"dev:webview:template": "bash ./scripts/dev-webview.sh",
+		"generate:app-identity": "bun run scripts/generate-app-identity.ts",
+		"build": "bun run build:ext",
+		"build:ext": "bun run generate:app-identity && bun run build:host",
+		"build:host": "bun build src/extension/extension.ts --outdir out/extension --format=cjs --target=node --external vscode --sourcemap",
+		"build:webview:template": "bash -lc 'cd src/webview && bun run build'",
+		"typecheck": "bun run generate:app-identity && tsgo -p ./",
+		"typecheck:watch": "tsgo -watch -p ./",
+		"lint": "oxlint src/extension src/webview/src",
+		"format": "oxfmt -w src/extension src/webview/src",
+		"package": "rm -rf node_modules/.old_modules-* && NODE_OPTIONS=\"--require ./scripts/patch-os-cpus.cjs\" vsce package --out work.vsix --allow-missing-repository --skip-license --no-dependencies",
+		"install:ext": "bun run build && bun run package && code-insiders --uninstall-extension albertyang.work 2>/dev/null; code-insiders --install-extension work.vsix --force",
+		"release": "bash ./scripts/release.sh patch",
+		"release:minor": "bash ./scripts/release.sh minor",
+		"vscode:prepublish": "echo skipped",
+		"build:ext:full": "bun run build:ext"
+	},
+	"dependencies": {
+		"@jsonrpc-rx/server": "^0.2.1",
+		"axios": "^1.6.7",
+		"node-html-parser": "^7.0.1",
+		"ws": "^8.19.0"
+	},
+	"devDependencies": {
+		"@types/node": "^20.11.30",
+		"@types/vscode": "^1.86.0",
+		"@types/ws": "^8.18.1",
+		"@typescript/native-preview": "^7.0.0-dev.20260203.1",
+		"@vitejs/plugin-react-swc": "^4.3.0",
+		"@vscode/vsce": "^3.6.2",
+		"oxfmt": "^0.28.0",
+		"oxlint": "^1.43.0",
+		"typescript": "^5.4.2",
+		"vite": "^7.3.1",
+		"vite-plugin-vscode-webview-hmr": "^1.0.1",
+		"work-shared": "workspace:*"
+	},
+	"contributes": {
+		"commands": [
+			{
+				"command": "work.login",
+				"title": "Work: Login",
+				"icon": "$(settings-gear)"
+			},
+			{
+				"command": "work.restartExtensionHost",
+				"title": "Work: Restart Extension Host"
+			},
+			{
+				"command": "work.openBrowser",
+				"title": "Work: Open Browser",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "work.refreshBrowser",
+				"title": "Work: Refresh Browser",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "work.syncEnvToSettings",
+				"title": "Work: Sync .env.local to Settings"
+			},
+			{
+				"command": "work.reinstallExtension",
+				"title": "Work: Reinstall Extension"
+			},
+			{
+				"command": "work.logout",
+				"title": "Work: Logout"
+			},
+			{
+				"command": "work.refresh",
+				"title": "Work: Refresh Issues"
+			},
+			{
+				"command": "work.refreshStoryTasks",
+				"title": "Work: Refresh Story Tasks",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "work.openIssue",
+				"title": "Work: Open Issue",
+				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "work.startTaskTerminal",
+				"title": "Work: Start Task Terminal",
+				"icon": "$(terminal)"
+			},
+			{
+				"command": "work.openAgentChat",
+				"title": "Work: Open Agent Chat",
+				"icon": "$(comment-discussion)"
+			},
+			{
+				"command": "work.attachAgentSession",
+				"title": "Work: Attach Agent Session",
+				"icon": "$(terminal)"
+			},
+			{
+				"command": "work.startStoryAgent",
+				"title": "Work: Start Story Agent",
+				"icon": "$(play-circle)"
+			},
+			{
+				"command": "work.newStoryAgent",
+				"title": "Work: New Story Agent",
+				"icon": "$(hubot)"
+			},
+			{
+				"command": "work.openAgentTerminal",
+				"title": "Work: Open Agent Terminal",
+				"icon": "$(terminal)"
+			}
+		],
+		"views": {
+			"explorer": [
+				{
+					"id": "workIssues",
+					"name": "Work",
+					"icon": "resources/work-view.svg"
+				}
+			]
+		},
+		"viewsWelcome": [
+			{
+				"view": "workIssues",
+				"contents": "Sign in to Jira to view your sprint issues.\\nUse Refresh to update the explorer."
+			}
+		],
+		"menus": {
+			"view/title": [
+				{
+					"command": "work.openAgentChat",
+					"when": "view == workIssues",
+					"group": "navigation",
+					"icon": "$(comment-discussion)"
+				},
+				{
+					"command": "work.refreshStoryTasks",
+					"when": "view == workIssues",
+					"group": "navigation@2",
+					"icon": "$(refresh)"
+				},
+				{
+					"command": "work.openBrowser",
+					"when": "view == workIssues",
+					"group": "navigation@3",
+					"icon": "$(globe)"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "work.openIssue",
+					"when": "view == workIssues && viewItem == workIssue",
+					"group": "inline",
+					"icon": "$(go-to-file)"
+				},
+				{
+					"command": "work.startStoryAgent",
+					"when": "view == workIssues && viewItem == workIssue",
+					"group": "inline@2",
+					"icon": "$(play-circle)"
+				},
+				{
+					"command": "work.newStoryAgent",
+					"when": "view == workIssues && viewItem == workIssue",
+					"group": "inline@3",
+					"icon": "$(hubot)"
+				},
+				{
+					"command": "work.attachAgentSession",
+					"when": "view == workIssues && viewItem == workAgentSession",
+					"group": "inline",
+					"icon": "$(terminal)"
+				},
+				{
+					"command": "work.startStoryAgent",
+					"when": "view == workIssues && viewItem == workAgentInfoNoActivity",
+					"group": "inline",
+					"icon": "$(play-circle)"
+				},
+				{
+					"command": "work.newStoryAgent",
+					"when": "view == workIssues && viewItem == workAgentInfoNoActivity",
+					"group": "inline@2",
+					"icon": "$(hubot)"
+				},
+				{
+					"command": "work.newStoryAgent",
+					"when": "view == workIssues && viewItem == workAgentSummary",
+					"group": "inline",
+					"icon": "$(hubot)"
+				}
+			]
+		},
+		"configuration": {
+			"title": "Work",
+			"properties": {
+				"work.baseUrl": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Jira base URL (e.g. https://your-domain.atlassian.net). [Sync from .env.local](command:work.syncEnvToSettings)"
+				},
+				"work.jiraUrl": {
+					"type": "string",
+					"default": "",
+					"description": "Legacy Jira URL setting (use work.baseUrl instead)."
+				},
+				"work.email": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Atlassian account email. [Sync from .env.local](command:work.syncEnvToSettings)"
+				},
+				"work.apiToken": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Atlassian API token. Prefer storing this in .env.local or using the Connect flow. [Sync from .env.local](command:work.syncEnvToSettings)"
+				},
+				"work.jql": {
+					"type": "string",
+					"default": "assignee = currentUser() AND sprint in openSprints() ORDER BY updated DESC",
+					"markdownDescription": "JQL used to load sprint issues. [Sync from .env.local](command:work.syncEnvToSettings)"
+				},
+				"work.maxResults": {
+					"type": "number",
+					"default": 50,
+					"description": "Maximum number of issues to fetch per refresh."
+				},
+				"work.explorer.showDetachedSessions": {
+					"type": "boolean",
+					"default": false,
+					"description": "Show detached tmux sessions in Work Explorer agent activity rows."
+				},
+				"work.explorer.maxSessionsPerStory": {
+					"type": "number",
+					"default": 4,
+					"minimum": 1,
+					"maximum": 20,
+					"description": "Maximum number of agent sessions shown under each story in Work Explorer."
+				},
+				"work.explorer.refreshIntervalMs": {
+					"type": "number",
+					"default": 0,
+					"minimum": 0,
+					"maximum": 300000,
+					"description": "Legacy polling fallback for Work Explorer in milliseconds. Default: 0 because explorer refresh is event-driven."
+				},
+				"work.docsPath": {
+					"type": "string",
+					"default": "",
+					"markdownDescription": "Optional path to a docs directory containing Markdown files. Used by the Docs tab (e.g. `/path/to/docs`)."
+				},
+				"work.webviewPath": {
+					"type": "string",
+					"default": "",
+					"description": "Template-only local HTML path for the dormant webview scaffold."
+				},
+				"work.webviewServerUrl": {
+					"type": "string",
+					"default": "",
+					"description": "Template-only server URL (e.g. http://localhost:5173) for dormant webview HMR experiments."
+				},
+				"work.policy.identityKind": {
+					"type": "string",
+					"default": "human",
+					"enum": [
+						"human",
+						"ai-agent",
+						"system"
+					],
+					"enumDescriptions": [
+						"Human operator \u2014 owner/developer roles",
+						"AI agent (Claude Code, Codex, etc.) \u2014 ai-worker role",
+						"System process \u2014 no roles"
+					],
+					"description": "Identity kind for permission policy evaluation."
+				},
+				"work.policy.identityId": {
+					"type": "string",
+					"default": "",
+					"description": "Optional identity ID for policy evaluation (e.g. your name or agent ID)."
+				},
+				"work.policy.allowJiraWrite": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow write operations to Jira (create/update issues)."
+				},
+				"work.policy.allowJiraComment": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow posting comments to Jira issues."
+				},
+				"work.policy.allowJiraTransition": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow transitioning Jira issue status."
+				},
+				"work.policy.allowLocalWrite": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow writing to local `$WORK_HOME/` files."
+				},
+				"work.policy.allowAgentDispatch": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow dispatching tasks to AI agents."
+				},
+				"work.policy.allowAgentTerminate": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "\u26a0\ufe0f **BLOCKED BY DEFAULT** \u2014 Allow terminating AI agent sessions."
+				}
+			}
+		}
+	},
+	"engines": {
+		"vscode": "^1.86.0"
+	}
 }

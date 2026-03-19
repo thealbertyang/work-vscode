@@ -234,6 +234,7 @@ function registerCommandSafely(
 export function activate(context: vscode.ExtensionContext): void {
   // MCP status bar — first thing, before anything else can fail
   const mcpStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  mcpStatus.command = VSCODE_COMMANDS.OPEN_BROWSER;
   mcpStatus.text = "$(globe) Work";
   mcpStatus.tooltip = "Work MCP: initializing...";
   mcpStatus.show();
