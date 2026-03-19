@@ -38,6 +38,9 @@ export class WorkMcpEventListener implements Disposable {
   constructor(private readonly opts: {
     onTerminalOpen?: () => void;
     onTerminalLaunch?: (req: TerminalLaunchRequest) => void;
+    onEvent?: (event: Record<string, unknown>) => void;
+    onConnected?: () => void;
+    onDisconnected?: () => void;
   } = {}) {}
 
   start(): void {
@@ -59,6 +62,7 @@ export class WorkMcpEventListener implements Disposable {
     ws.on("open", () => {
       opened = true;
       log(`[work-mcp-events] connected: ${endpoint}`);
+      this.opts.onConnected?.();
     });
 
     ws.on("message", (raw) => {
@@ -79,6 +83,7 @@ export class WorkMcpEventListener implements Disposable {
       if (!opened && this.endpoints.length > 1) {
         this.endpointIndex = (this.endpointIndex + 1) % this.endpoints.length;
       }
+      this.opts.onDisconnected?.();
       this.scheduleReconnect();
     });
   }
@@ -86,8 +91,14 @@ export class WorkMcpEventListener implements Disposable {
   private handleMessage(text: string): void {
     try {
       const data = JSON.parse(text) as Record<string, unknown>;
+      const eventType = typeof data.type === "string" ? data.type : "";
 
-      if (data.type === "terminal:launch") {
+      if (eventType === "ping") return;
+      if (eventType) {
+        this.opts.onEvent?.(data);
+      }
+
+      if (eventType === "terminal:launch") {
         // Payload may be at top level (direct WS) or inside stringified `payload` (event bus)
         const inner = typeof data.payload === "string"
           ? JSON.parse(data.payload) as Record<string, unknown>
@@ -108,7 +119,7 @@ export class WorkMcpEventListener implements Disposable {
         return;
       }
 
-      if (data.type !== "terminal:open") return;
+      if (eventType !== "terminal:open") return;
 
       const session = typeof data.session === "string" ? data.session : "";
       const windowIndex = normalizeWindowIndex(data.windowIndex ?? data.window);

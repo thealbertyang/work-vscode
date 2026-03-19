@@ -16,6 +16,7 @@ import { WorkspaceUriHandler } from "./service/uri-handler";
 import { WorkMcpEventListener } from "./service/work-mcp-events";
 import { buildAgentTerminalTitle, openOrReuseAgentTerminal, launchAgentDirectly, revealAgentSession } from "./service/agent-terminal";
 import { spawnAgentViaWorkMcp } from "./service/work-mcp-client";
+import { openWorkBrowser, refreshWorkBrowser } from "./service/integrated-browser";
 import { VSCODE_COMMANDS } from "../shared/contracts";
 
 const LEGACY_START_TASK_TERMINAL_COMMANDS = [
@@ -232,6 +233,21 @@ function registerCommandSafely(
 export function activate(context: vscode.ExtensionContext): void {
   let provider: WorkspaceIssuesProvider | undefined;
   let client: JiraClient | undefined;
+  let scheduledRefresh: ReturnType<typeof setTimeout> | null = null;
+
+  const scheduleProviderRefresh = (): void => {
+    if (scheduledRefresh) clearTimeout(scheduledRefresh);
+    scheduledRefresh = setTimeout(() => {
+      scheduledRefresh = null;
+      provider?.refresh();
+    }, 150);
+  };
+  context.subscriptions.push({
+    dispose: () => {
+      if (scheduledRefresh) clearTimeout(scheduledRefresh);
+      scheduledRefresh = null;
+    },
+  });
 
   const requireProvider = (): WorkspaceIssuesProvider | null => {
     if (provider) return provider;
@@ -254,6 +270,15 @@ export function activate(context: vscode.ExtensionContext): void {
     const ready = requireProvider();
     if (!ready) return;
     ready.refresh();
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.OPEN_BROWSER, async (input?: unknown) => {
+    const target = typeof input === "string" || (input && typeof input === "object")
+      ? input as string | { url?: string; path?: string; section?: string }
+      : undefined;
+    await openWorkBrowser(context, target);
+  });
+  registerCommandSafely(context, VSCODE_COMMANDS.REFRESH_BROWSER, async () => {
+    await refreshWorkBrowser(context);
   });
   registerCommandSafely(context, VSCODE_COMMANDS.OPEN_ISSUE, async (input?: unknown) => {
     const jira = requireClient();
@@ -353,29 +378,16 @@ export function activate(context: vscode.ExtensionContext): void {
     terminal.show();
   });
 
-  // ── Previously unregistered commands (declared in package.json, handlers in handlers/) ──
-  registerCommandSafely(context, VSCODE_COMMANDS.OPEN_APP, async () => {
-    const root = workspaceRoot();
-    if (!root) { vscode.window.showWarningMessage("No workspace folder open."); return; }
-    const panel = vscode.window.createWebviewPanel("workApp", "Work", vscode.ViewColumn.One, { enableScripts: true });
-    panel.webview.html = "<html><body><h1>Work App</h1><p>Loading...</p></body></html>";
-  });
+  // Webview app template is intentionally disabled. The active extension surface is the
+  // explorer + commands, and the dormant webview scaffold remains on disk for future work.
   registerCommandSafely(context, VSCODE_COMMANDS.LOGIN, async () => {
     vscode.window.showInformationMessage("Work: Login — configure JIRA credentials in .env.local");
   });
   registerCommandSafely(context, VSCODE_COMMANDS.LOGOUT, async () => {
     vscode.window.showInformationMessage("Work: Logged out");
   });
-  registerCommandSafely(context, VSCODE_COMMANDS.RUN_DEV_WEBVIEW, async () => {
-    const terminal = vscode.window.createTerminal({ name: "Work Webview Dev" });
-    terminal.sendText("cd repos/work/vscode && bun run dev:webview");
-    terminal.show();
-  });
   registerCommandSafely(context, VSCODE_COMMANDS.RESTART_EXTENSION_HOST, async () => {
     await vscode.commands.executeCommand("workbench.action.restartExtensionHost");
-  });
-  registerCommandSafely(context, VSCODE_COMMANDS.RELOAD_WEBVIEWS, async () => {
-    vscode.window.showInformationMessage("Work: Webviews reloaded");
   });
   registerCommandSafely(context, VSCODE_COMMANDS.SYNC_ENV_TO_SETTINGS, async () => {
     vscode.window.showInformationMessage("Work: Sync .env.local to settings — use mise run agents:setup");
@@ -463,7 +475,7 @@ export function activate(context: vscode.ExtensionContext): void {
           event.affectsConfiguration("work.explorer.showDetachedSessions")
           || event.affectsConfiguration("work.explorer.maxSessionsPerStory")
         ) {
-          provider?.refresh();
+          scheduleProviderRefresh();
         }
       }),
     );
@@ -476,9 +488,31 @@ export function activate(context: vscode.ExtensionContext): void {
     });
     context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 
+    // Work MCP connection status bar
+    const mcpStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 50);
+    mcpStatusBar.command = VSCODE_COMMANDS.OPEN_BROWSER;
+    context.subscriptions.push(mcpStatusBar);
+
+    const setMcpConnected = () => {
+      mcpStatusBar.text = "$(check) Work MCP";
+      mcpStatusBar.tooltip = "Work MCP: connected";
+      mcpStatusBar.backgroundColor = undefined;
+      mcpStatusBar.show();
+    };
+    const setMcpDisconnected = () => {
+      mcpStatusBar.text = "$(warning) Work MCP";
+      mcpStatusBar.tooltip = "Work MCP: disconnected — reconnecting...";
+      mcpStatusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+      mcpStatusBar.show();
+    };
+    setMcpDisconnected();
+
     // Connect to WorkMCP WS to receive terminal events
     const mcpEvents = new WorkMcpEventListener({
-      onTerminalOpen: () => provider?.refresh(),
+      onConnected: setMcpConnected,
+      onDisconnected: setMcpDisconnected,
+      onEvent: () => scheduleProviderRefresh(),
+      onTerminalOpen: () => scheduleProviderRefresh(),
       onTerminalLaunch: (req) => {
         const terminalOpts: vscode.TerminalOptions = {
           name: req.title || "Agent",
@@ -492,7 +526,7 @@ export function activate(context: vscode.ExtensionContext): void {
         terminal.sendText(`source "${req.script}"`);
         terminal.show();
         console.log(`[work] terminal:launch via WS: ${req.title}`);
-        provider?.refresh();
+        scheduleProviderRefresh();
       },
     });
     mcpEvents.start();
@@ -503,15 +537,16 @@ export function activate(context: vscode.ExtensionContext): void {
       decorations.startWatching();
       context.subscriptions.push(decorations);
       context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorations));
-      context.subscriptions.push(storyReader.watch(() => provider?.refresh()));
+      context.subscriptions.push(storyReader.watch(() => scheduleProviderRefresh()));
     }
 
-    // Auto-refresh explorer on interval for agent session state changes
+    // Event-driven refresh is the default. Polling remains available as an explicit
+    // fallback for environments where WS/file events are unavailable.
     const refreshIntervalMs = vscode.workspace
       .getConfiguration("work")
-      .get<number>("explorer.refreshIntervalMs", 10_000);
+      .get<number>("explorer.refreshIntervalMs", 0);
     if (refreshIntervalMs > 0) {
-      const refreshTimer = setInterval(() => provider?.refresh(), refreshIntervalMs);
+      const refreshTimer = setInterval(() => scheduleProviderRefresh(), refreshIntervalMs);
       context.subscriptions.push({ dispose: () => clearInterval(refreshTimer) });
     }
   } catch (error) {
