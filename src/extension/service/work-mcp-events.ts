@@ -1,11 +1,13 @@
 import WebSocket from "ws";
 import type { Disposable } from "vscode";
 import { commands } from "vscode";
+import { resolveWorkMcpEventEndpoints } from "work-shared/contracts/origins";
 import { log } from "../providers/data/jira/logger";
 import { VSCODE_COMMANDS } from "../../shared/contracts";
-import { resolveWorkMcpEventEndpoints } from "./work-mcp-client";
 
-const RECONNECT_MS = 5_000;
+const RECONNECT_BASE_MS = 5_000;
+const RECONNECT_MAX_MS = 120_000; // 2 minutes max
+const RECONNECT_MAX_SILENT_FAILURES = 6; // stop logging after 6 consecutive failures
 
 function normalizeWindowIndex(value: unknown): string | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -33,6 +35,7 @@ export class WorkMcpEventListener implements Disposable {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
   private endpointIndex = 0;
+  private consecutiveFailures = 0;
   private readonly endpoints = resolveWorkMcpEventEndpoints();
 
   constructor(private readonly opts: {
@@ -61,6 +64,7 @@ export class WorkMcpEventListener implements Disposable {
 
     ws.on("open", () => {
       opened = true;
+      this.consecutiveFailures = 0; // reset backoff on successful connection
       log(`[work-mcp-events] connected: ${endpoint}`);
       this.opts.onConnected?.();
     });
@@ -70,7 +74,12 @@ export class WorkMcpEventListener implements Disposable {
     });
 
     ws.on("error", (err) => {
-      log(`[work-mcp-events] error (${endpoint}): ${err.message}`);
+      this.consecutiveFailures++;
+      if (this.consecutiveFailures <= RECONNECT_MAX_SILENT_FAILURES) {
+        log(`[work-mcp-events] error (${endpoint}): ${err.message}`);
+      } else if (this.consecutiveFailures === RECONNECT_MAX_SILENT_FAILURES + 1) {
+        log(`[work-mcp-events] suppressing further reconnect errors (${this.consecutiveFailures} consecutive failures, backing off)`);
+      }
     });
 
     ws.on("close", (code, reasonBuf) => {
@@ -143,10 +152,15 @@ export class WorkMcpEventListener implements Disposable {
 
   private scheduleReconnect(): void {
     if (this.disposed || this.reconnectTimer) return;
+    // Exponential backoff: 5s, 10s, 20s, 40s, 80s, 120s (capped)
+    const delay = Math.min(
+      RECONNECT_BASE_MS * Math.pow(2, Math.max(0, this.consecutiveFailures - 1)),
+      RECONNECT_MAX_MS,
+    );
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
-    }, RECONNECT_MS);
+    }, delay);
   }
 
   dispose(): void {

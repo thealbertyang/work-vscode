@@ -1,14 +1,16 @@
 import * as vscode from "vscode";
-import { resolveWorkMcpOrigins } from "./work-mcp-client";
+import { DEFAULT_ROUTE_PATH } from "work-shared/contracts/routes";
+import { resolveWorkMcpOrigins } from "work-shared/contracts/origins";
+import { findReachableWorkMcpOrigin } from "./work-mcp-client";
 import { log } from "../providers/data/jira/logger";
 
-const DEFAULT_WORK_BROWSER_PATH = "/now";
+const DEFAULT_WORK_BROWSER_PATH = DEFAULT_ROUTE_PATH;
 
 // VS Code Insiders 2026 integrated browser commands (in priority order)
 const BROWSER_COMMANDS = [
   "integratedBrowser.open",                    // VS Code Insiders 1.110+ (March 2026)
-  "workbench.action.browser.open",             // earlier integrated browser
   "simpleBrowser.show",                        // fallback
+  "workbench.action.browser.open",             // older browser editor, noisier in logs
 ] as const;
 
 function normalizeBaseUrl(value: string): string {
@@ -38,6 +40,18 @@ export function resolveWorkBrowserUrl(target?: string): string {
       : `${normalizeBaseUrl(preferredWorkBrowserOrigin())}${normalized}`;
   }
   return `${normalizeBaseUrl(preferredWorkBrowserOrigin())}${DEFAULT_WORK_BROWSER_PATH}`;
+}
+
+async function resolveOpenableWorkBrowserUrl(target?: string): Promise<string | null> {
+  const normalizedTarget = target ? normalizePath(target) : undefined;
+  if (normalizedTarget && /^https?:\/\//i.test(normalizedTarget)) {
+    return normalizedTarget;
+  }
+
+  const origin = await findReachableWorkMcpOrigin();
+  if (!origin) return null;
+  const path = normalizedTarget ?? DEFAULT_WORK_BROWSER_PATH;
+  return `${normalizeBaseUrl(origin)}${path}`;
 }
 
 async function openUrl(url: string): Promise<void> {
@@ -77,7 +91,14 @@ export async function openWorkBrowser(
     path = target.path;
   }
 
-  const url = resolveWorkBrowserUrl(path);
+  const fallbackUrl = resolveWorkBrowserUrl(path);
+  const url = await resolveOpenableWorkBrowserUrl(path);
+  if (!url) {
+    const message = `Work browser is unavailable. Start the Work app/server first (${fallbackUrl}).`;
+    log(`[browser] ${message}`);
+    void vscode.window.showWarningMessage(message);
+    return fallbackUrl;
+  }
   await openUrl(url);
   return url;
 }

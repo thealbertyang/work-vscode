@@ -5,6 +5,10 @@ import type {
   WorkDelegationProjection,
 } from "work-shared/domain/delegation";
 import type { WorkAppSummary } from "work-shared/domain/app";
+import {
+  resolveWorkMcpEventEndpoints,
+  resolveWorkMcpOrigins,
+} from "work-shared/contracts/origins";
 
 export type WorkMcpAgentTool = "claude" | "codex";
 export type WorkMcpSpawnAction = "new" | "continue" | "resume";
@@ -45,71 +49,33 @@ export interface WorkSnapshot {
   };
 }
 
-const DEFAULT_ORIGINS = [
-  "https://127.0.0.1:4500",
-  "http://127.0.0.1:4500",
-  "https://localhost:4500",
-  "http://localhost:4500",
-  "https://127.0.0.1:3001",
-  "http://127.0.0.1:3001",
-] as const;
-
 const INSECURE_HTTPS_AGENT = new https.Agent({ rejectUnauthorized: false });
+export { resolveWorkMcpEventEndpoints, resolveWorkMcpOrigins } from "work-shared/contracts/origins";
 
-function normalizeBaseUrl(value: string): string {
-  return value.trim().replace(/\/+$/, "");
-}
+export async function findReachableWorkMcpOrigin(
+  opts?: { timeoutMs?: number },
+): Promise<string | null> {
+  const timeout = opts?.timeoutMs ?? 750;
 
-function wsToHttp(value: string): string {
-  return normalizeBaseUrl(value)
-    .replace(/^wss:/, "https:")
-    .replace(/^ws:/, "http:")
-    .replace(/\/ws(?:\?.*)?$/, "");
-}
-
-function httpToWs(value: string): string {
-  return normalizeBaseUrl(value)
-    .replace(/^https:/, "wss:")
-    .replace(/^http:/, "ws:");
-}
-
-function unique(values: string[]): string[] {
-  return [...new Set(values.filter(Boolean))];
-}
-
-export function resolveWorkMcpOrigins(): string[] {
-  const configuredOrigin = process.env.WORK_MCP_ORIGIN?.trim();
-  if (configuredOrigin) {
-    return [normalizeBaseUrl(configuredOrigin)];
-  }
-
-  const configuredWs = process.env.WORK_MCP_WS_URL?.trim();
-  if (configuredWs) {
-    return [wsToHttp(configuredWs)];
-  }
-
-  return [...DEFAULT_ORIGINS];
-}
-
-export function resolveWorkMcpEventEndpoints(): string[] {
-  const configuredWs = process.env.WORK_MCP_WS_URL?.trim();
-  if (configuredWs) {
-    return [normalizeBaseUrl(configuredWs)];
-  }
-
-  // Return only distinct host:port combinations to avoid duplicate WS connections
-  // to the same server (e.g. 127.0.0.1:4500 and localhost:4500 are the same server).
-  // Prefer wss over ws, prefer 127.0.0.1 over localhost.
-  const seen = new Set<string>();
-  const endpoints: string[] = [];
   for (const origin of resolveWorkMcpOrigins()) {
-    const url = new URL(origin);
-    const portKey = url.port || (url.protocol === "https:" ? "443" : "80");
-    if (seen.has(portKey)) continue;
-    seen.add(portKey);
-    endpoints.push(`${httpToWs(origin)}/ws?topic=events`);
+    try {
+      const response = await axios.get(
+        `${origin}/api/app`,
+        {
+          timeout,
+          httpsAgent: INSECURE_HTTPS_AGENT,
+          validateStatus: () => true,
+        },
+      );
+      if (response.status >= 200 && response.status < 300) {
+        return origin;
+      }
+    } catch {
+      // Try the next configured origin.
+    }
   }
-  return endpoints;
+
+  return null;
 }
 
 function formatRequestError(error: unknown): string {

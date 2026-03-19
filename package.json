@@ -1,7 +1,7 @@
 {
 	"name": "work",
 	"displayName": "Work",
-	"version": "0.0.13",
+	"version": "0.0.14",
 	"description": "Work view for sprint issues and agent activity.",
 	"categories": [
 		"Other"
