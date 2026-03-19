@@ -142,19 +142,19 @@ const buildDefaultStorageTargets = (): Record<string, UniversalStorageTarget> =>
     id: "webviewState",
     kind: "vscodeStorage",
     scope: "webview",
-    description: "Webview local state via vscodeApi.setState.",
+    description: "Template-only webview local state via vscodeApi.setState.",
   },
   webviewLocal: {
     id: "webviewLocal",
     kind: "localStorage",
     scope: "webview",
-    description: "Webview local or session storage (UI-only).",
+    description: "Template-only webview local or session storage.",
   },
   webviewIndexedDb: {
     id: "webviewIndexedDb",
     kind: "indexeddb",
     scope: "webview",
-    description: "Webview IndexedDB for offline UI caches (no secrets).",
+    description: "Template-only webview IndexedDB for offline UI caches.",
   },
   extensionSqlite: {
     id: "extensionSqlite",
@@ -284,11 +284,10 @@ export const buildDefaultTopology = (): TopologyConfig => ({
 
   overrides: {
     // VS Code commands
-    "work.openApp": "app",
     "work.refresh": "app",
-    "work.runDevWebview": "app",
+    "work.openBrowser": "view",
+    "work.refreshBrowser": "view",
     "work.restartExtensionHost": "app",
-    "work.reloadWebviews": "app",
     "work.syncEnvToSettings": "app",
     "work.reinstallExtension": "app",
     "work.login": "identity",
@@ -300,16 +299,16 @@ export const buildDefaultTopology = (): TopologyConfig => ({
     registerChannel: "app", unregisterChannel: "app", sendMessage: "app",
     addMessageListener: "app", rmMessageListener: "app",
     axiosGet: "app", axiosPost: "app", axiosPut: "app", axiosDelete: "app",
+    openBrowser: "view", refreshBrowser: "view",
     openSettings: "app", syncEnvToSettings: "app", startTaskTerminal: "app",
     getUniversalConfig: "app", getFullConfig: "app",
     getDocsIndex: "app", getDocContent: "app", revealDocAsset: "app", openDocInEditor: "app",
-    restartExtensionHost: "app", reloadWebviews: "app", reinstallExtension: "app",
+    restartExtensionHost: "app", reinstallExtension: "app",
     saveApiToken: "identity", disconnect: "identity",
     getIssue: "content", listIssues: "content", openIssueInBrowser: "content",
     getTriageState: "content", runTriage: "content",
     getAutomations: "content", getAutomationRuns: "content",
     onDidOpenTextDocument: "app", buildExtension: "app", buildWebview: "app",
-    runDevWebview: "app",
     getTheme: "view", setTheme: "view", onThemeChange: "view",
     // IPC commands / events
     "work.route.navigate": "view", "work.webview.refresh": "app",
@@ -398,8 +397,8 @@ export const DEFAULT_UNIVERSAL_CONFIG: UniversalConfig = {
   routes: buildDefaultRoutes(),
   views: buildDefaultViews(),
   platforms: {
-    vscode: { id: "vscode", kind: "vscode", description: "VS Code webview panel." },
-    web: { id: "web", kind: "web", description: "Browser via WS bridge (localhost dev)." },
+    vscode: { id: "vscode", kind: "vscode", description: "VS Code explorer and command surface." },
+    web: { id: "web", kind: "web", description: "Dormant browser template via WS bridge." },
     remote: { id: "remote", kind: "remote", description: "VS Code Remote (SSH/WSL/Codespaces)." },
   },
   environments: {

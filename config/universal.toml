@@ -14,12 +14,12 @@ legacyRouteHintKeys = ["__atlassianRoute"]
 legacyWebviewMarkers = ["atlassian-webview"]
 
 [metadata]
-"brain.origin" = "https://localhost:3000"
-"brain.healthPath" = "/healthz"
-"brain.statusPath" = "/api/status"
-"brain.routesPath" = "/api/routes"
-"brain.eventsTopic" = "events"
-"brain.eventsWsUrl" = "wss://localhost:3000/ws?topic=events"
+"app.origin" = "https://localhost:4500"
+"app.healthPath" = "/healthz"
+"app.statusPath" = "/api/status"
+"app.routesPath" = "/api/routes"
+"app.eventsTopic" = "events"
+"app.eventsWsUrl" = "wss://localhost:4500/ws?topic=events"
 
 [namespaces]
 app = "work"
@@ -33,11 +33,11 @@ settings = "work"
 
 [platforms.vscode]
 kind = "vscode"
-description = "VS Code webview panel"
+description = "VS Code explorer and command surface"
 
 [platforms.web]
 kind = "web"
-description = "Browser via WS bridge (localhost dev)"
+description = "VS Code integrated browser surface for the Work app"
 
 [platforms.remote]
 kind = "remote"
@@ -218,16 +218,6 @@ route = "plan"
 path = "/plan"
 view = "plan"
 
-[actions.appOpen]
-id = "work.app.open"
-command = "work.openApp"
-route = "plan"
-
-[commands.openApp]
-id = "work.openApp"
-kind = "vscode"
-title = "Work: Open App"
-
 [events.routeChanged]
 id = "work.route.changed"
 kind = "ipc"
@@ -314,11 +304,10 @@ color = "var(--color-domain-view)"
 
 [topology.overrides]
 # VS Code commands
-"work.openApp" = "app"
 "work.refresh" = "app"
-"work.runDevWebview" = "app"
+"work.openBrowser" = "view"
+"work.refreshBrowser" = "view"
 "work.restartExtensionHost" = "app"
-"work.reloadWebviews" = "app"
 "work.syncEnvToSettings" = "app"
 "work.reinstallExtension" = "app"
 "work.login" = "identity"
@@ -338,6 +327,8 @@ axiosGet = "app"
 axiosPost = "app"
 axiosPut = "app"
 axiosDelete = "app"
+openBrowser = "view"
+refreshBrowser = "view"
 openSettings = "app"
 syncEnvToSettings = "app"
 startTaskTerminal = "app"
@@ -348,7 +339,6 @@ getDocContent = "app"
 revealDocAsset = "app"
 openDocInEditor = "app"
 restartExtensionHost = "app"
-reloadWebviews = "app"
 reinstallExtension = "app"
 saveApiToken = "identity"
 disconnect = "identity"
@@ -362,7 +352,6 @@ getAutomationRuns = "content"
 onDidOpenTextDocument = "app"
 buildExtension = "app"
 buildWebview = "app"
-runDevWebview = "app"
 getTheme = "view"
 setTheme = "view"
 onThemeChange = "view"

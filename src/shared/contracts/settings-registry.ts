@@ -77,7 +77,7 @@ export const SETTINGS_REGISTRY: Record<SettingKey, SettingsRegistryItem> = {
     key: SETTINGS_KEYS.WEBVIEW_PATH,
     type: "string",
     defaultValue: "",
-    description: "Optional local HTML path for live-refresh webview.",
+    description: "Template-only local HTML path for the dormant webview scaffold.",
     envKeys: buildEnvKeys("WEBVIEW_PATH"),
   },
   [SETTINGS_KEYS.WEBVIEW_SERVER_URL]: {
@@ -85,7 +85,7 @@ export const SETTINGS_REGISTRY: Record<SettingKey, SettingsRegistryItem> = {
     key: SETTINGS_KEYS.WEBVIEW_SERVER_URL,
     type: "string",
     defaultValue: "",
-    description: "Optional server URL (e.g. http://localhost:5173) for HMR webview loading.",
+    description: "Template-only server URL (e.g. http://localhost:5173) for dormant webview HMR experiments.",
     envKeys: buildEnvKeys("WEBVIEW_SERVER_URL"),
   },
 };

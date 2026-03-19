@@ -1,24 +1,5 @@
 [
   {
-    "id": "work.openApp",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "command",
-    "project": "work",
-    "source": "src/shared/contracts/commands.ts",
-    "deliveries": [
-      "ui-control"
-    ],
-    "spec": "contract",
-    "access": {
-      "scope": "global",
-      "visibility": "public",
-      "platforms": [
-        "vscode"
-      ]
-    }
-  },
-  {
     "id": "work.login",
     "layer": "interface",
     "domain": "app",
@@ -95,7 +76,26 @@
     }
   },
   {
-    "id": "work.runDevWebview",
+    "id": "work.openBrowser",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "command",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "deliveries": [
+      "ui-control"
+    ],
+    "spec": "contract",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.refreshBrowser",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
@@ -115,25 +115,6 @@
   },
   {
     "id": "work.restartExtensionHost",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "command",
-    "project": "work",
-    "source": "src/shared/contracts/commands.ts",
-    "deliveries": [
-      "ui-control"
-    ],
-    "spec": "contract",
-    "access": {
-      "scope": "global",
-      "visibility": "public",
-      "platforms": [
-        "vscode"
-      ]
-    }
-  },
-  {
-    "id": "work.reloadWebviews",
     "layer": "interface",
     "domain": "app",
     "kind": "command",
@@ -334,7 +315,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -351,7 +332,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -368,7 +349,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -385,7 +366,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -402,7 +383,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -419,7 +400,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -436,7 +417,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -453,7 +434,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -470,7 +451,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -487,7 +468,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -504,7 +485,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -521,7 +502,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -538,7 +519,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -555,7 +536,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -572,7 +553,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -589,7 +570,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -606,7 +587,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -623,7 +604,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -640,7 +621,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -657,7 +638,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -674,7 +655,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -691,7 +672,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -708,7 +689,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -725,7 +706,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -742,7 +723,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -759,7 +740,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -776,7 +757,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -793,7 +774,41 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.openBrowser",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "server",
+        "client"
+      ]
+    }
+  },
+  {
+    "id": "work.rpc.refreshBrowser",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "rpc",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "access": {
+      "scope": "session",
+      "visibility": "internal",
+      "platforms": [
+        "server",
         "client"
       ]
     }
@@ -810,24 +825,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "work.rpc.runDevWebview",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "work",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -844,24 +842,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
-        "client"
-      ]
-    }
-  },
-  {
-    "id": "work.rpc.reloadWebviews",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "rpc",
-    "project": "work",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "access": {
-      "scope": "session",
-      "visibility": "internal",
-      "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -878,7 +859,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -895,7 +876,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -912,7 +893,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -929,7 +910,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -946,25 +927,8 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
-      ]
-    }
-  },
-  {
-    "id": "work.app.open",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "action",
-    "project": "work",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "resolves": "work.openApp",
-    "access": {
-      "scope": "global",
-      "visibility": "public",
-      "platforms": [
-        "vscode"
       ]
     }
   },
@@ -1037,6 +1001,40 @@
     }
   },
   {
+    "id": "work.app.openBrowser",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.openBrowser",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
+    "id": "work.app.refreshBrowser",
+    "layer": "interface",
+    "domain": "app",
+    "kind": "action",
+    "project": "work",
+    "source": "src/shared/contracts/commands.ts",
+    "spec": "contract",
+    "resolves": "work.rpc.refreshBrowser",
+    "access": {
+      "scope": "global",
+      "visibility": "public",
+      "platforms": [
+        "vscode"
+      ]
+    }
+  },
+  {
     "id": "work.issue.open",
     "layer": "interface",
     "domain": "app",
@@ -1054,23 +1052,6 @@
     }
   },
   {
-    "id": "work.dev.runWebview",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "action",
-    "project": "work",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "resolves": "work.rpc.runDevWebview",
-    "access": {
-      "scope": "global",
-      "visibility": "public",
-      "platforms": [
-        "vscode"
-      ]
-    }
-  },
-  {
     "id": "work.dev.restartExtensionHost",
     "layer": "interface",
     "domain": "app",
@@ -1079,23 +1060,6 @@
     "source": "src/shared/contracts/commands.ts",
     "spec": "contract",
     "resolves": "work.rpc.restartExtensionHost",
-    "access": {
-      "scope": "global",
-      "visibility": "public",
-      "platforms": [
-        "vscode"
-      ]
-    }
-  },
-  {
-    "id": "work.dev.reloadWebviews",
-    "layer": "interface",
-    "domain": "app",
-    "kind": "action",
-    "project": "work",
-    "source": "src/shared/contracts/commands.ts",
-    "spec": "contract",
-    "resolves": "work.rpc.reloadWebviews",
     "access": {
       "scope": "global",
       "visibility": "public",
@@ -1337,7 +1301,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -1354,7 +1318,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -1371,7 +1335,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -1388,7 +1352,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -1405,7 +1369,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -1422,7 +1386,7 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
       ]
     }
@@ -1439,8 +1403,69 @@
       "scope": "session",
       "visibility": "internal",
       "platforms": [
-        "host",
+        "server",
         "client"
+      ]
+    }
+  },
+  {
+    "id": "work.route.now",
+    "layer": "interface",
+    "domain": "view",
+    "kind": "route",
+    "project": "work",
+    "source": "src/shared/contracts/routes.ts",
+    "spec": "contract",
+    "meta": {
+      "path": "/now"
+    },
+    "access": {
+      "scope": "session",
+      "visibility": "public",
+      "platforms": [
+        "vscode",
+        "web"
+      ]
+    }
+  },
+  {
+    "id": "work.route.work",
+    "layer": "interface",
+    "domain": "view",
+    "kind": "route",
+    "project": "work",
+    "source": "src/shared/contracts/routes.ts",
+    "spec": "contract",
+    "meta": {
+      "path": "/work"
+    },
+    "access": {
+      "scope": "session",
+      "visibility": "public",
+      "platforms": [
+        "vscode",
+        "web"
+      ]
+    }
+  },
+  {
+    "id": "work.route.agents",
+    "layer": "interface",
+    "domain": "view",
+    "kind": "route",
+    "project": "work",
+    "source": "src/shared/contracts/routes.ts",
+    "spec": "contract",
+    "meta": {
+      "path": "/agents",
+      "tabLabel": "Agents"
+    },
+    "access": {
+      "scope": "session",
+      "visibility": "public",
+      "platforms": [
+        "vscode",
+        "web"
       ]
     }
   },
@@ -1653,6 +1678,27 @@
     "meta": {
       "path": "/observe",
       "tabLabel": "Observe"
+    },
+    "access": {
+      "scope": "session",
+      "visibility": "public",
+      "platforms": [
+        "vscode",
+        "web"
+      ]
+    }
+  },
+  {
+    "id": "work.route.system",
+    "layer": "interface",
+    "domain": "view",
+    "kind": "route",
+    "project": "work",
+    "source": "src/shared/contracts/routes.ts",
+    "stage": "system",
+    "spec": "contract",
+    "meta": {
+      "path": "/system"
     },
     "access": {
       "scope": "session",

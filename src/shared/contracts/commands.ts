@@ -1,14 +1,13 @@
 import type { RouteName } from "./routes";
 
 export const VSCODE_COMMANDS = {
-  OPEN_APP: "work.openApp",
   LOGIN: "work.login",
   LOGOUT: "work.logout",
   REFRESH: "work.refresh",
   REFRESH_STORY_TASKS: "work.refreshStoryTasks",
-  RUN_DEV_WEBVIEW: "work.runDevWebview",
+  OPEN_BROWSER: "work.openBrowser",
+  REFRESH_BROWSER: "work.refreshBrowser",
   RESTART_EXTENSION_HOST: "work.restartExtensionHost",
-  RELOAD_WEBVIEWS: "work.reloadWebviews",
   SYNC_ENV_TO_SETTINGS: "work.syncEnvToSettings",
   REINSTALL_EXTENSION: "work.reinstallExtension",
   OPEN_ISSUE: "work.openIssue",
@@ -51,10 +50,10 @@ export const RPC_METHODS = {
   OPEN_SETTINGS: "openSettings",
   SYNC_ENV_TO_SETTINGS: "syncEnvToSettings",
   OPEN_ISSUE_IN_BROWSER: "openIssueInBrowser",
+  OPEN_BROWSER: "openBrowser",
+  REFRESH_BROWSER: "refreshBrowser",
   REINSTALL_EXTENSION: "reinstallExtension",
-  RUN_DEV_WEBVIEW: "runDevWebview",
   RESTART_EXTENSION_HOST: "restartExtensionHost",
-  RELOAD_WEBVIEWS: "reloadWebviews",
   START_TASK_TERMINAL: "startTaskTerminal",
   GET_AUTOMATIONS: "getAutomations",
   GET_AUTOMATION_RUNS: "getAutomationRuns",
@@ -73,11 +72,6 @@ export type ActionDefinition = {
 };
 
 export const ACTIONS = {
-  APP_OPEN: {
-    id: "work.app.open",
-    vscode: VSCODE_COMMANDS.OPEN_APP,
-    route: "plan",
-  },
   APP_LOGIN: {
     id: "work.app.login",
     vscode: VSCODE_COMMANDS.LOGIN,
@@ -95,25 +89,27 @@ export const ACTIONS = {
     id: "work.app.refreshStoryTasks",
     vscode: VSCODE_COMMANDS.REFRESH_STORY_TASKS,
   },
+  APP_OPEN_BROWSER: {
+    id: "work.app.openBrowser",
+    vscode: VSCODE_COMMANDS.OPEN_BROWSER,
+    rpc: RPC_METHODS.OPEN_BROWSER,
+    description: "Open the Work app in the VS Code integrated browser",
+  },
+  APP_REFRESH_BROWSER: {
+    id: "work.app.refreshBrowser",
+    vscode: VSCODE_COMMANDS.REFRESH_BROWSER,
+    rpc: RPC_METHODS.REFRESH_BROWSER,
+    description: "Refresh the Work app in the VS Code integrated browser",
+  },
   ISSUE_OPEN: {
     id: "work.issue.open",
     vscode: VSCODE_COMMANDS.OPEN_ISSUE,
     route: "reviewIssue",
   },
-  DEV_RUN_WEBVIEW: {
-    id: "work.dev.runWebview",
-    vscode: VSCODE_COMMANDS.RUN_DEV_WEBVIEW,
-    rpc: RPC_METHODS.RUN_DEV_WEBVIEW,
-  },
   DEV_RESTART_EXTENSION_HOST: {
     id: "work.dev.restartExtensionHost",
     vscode: VSCODE_COMMANDS.RESTART_EXTENSION_HOST,
     rpc: RPC_METHODS.RESTART_EXTENSION_HOST,
-  },
-  DEV_RELOAD_WEBVIEWS: {
-    id: "work.dev.reloadWebviews",
-    vscode: VSCODE_COMMANDS.RELOAD_WEBVIEWS,
-    rpc: RPC_METHODS.RELOAD_WEBVIEWS,
   },
   DEV_SYNC_ENV: {
     id: "work.dev.syncEnvToSettings",

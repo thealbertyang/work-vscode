@@ -36,14 +36,14 @@
     "src/webview"
   ],
   "scripts": {
-    "dev": "zsh -c 'trap \"kill %1 2>/dev/null\" EXIT; bun run build:host --watch & bash ./scripts/dev-webview.sh'",
+    "dev": "bun run build:host --watch",
     "dev:ext": "bun run build:host --watch",
-    "dev:webview": "bash ./scripts/dev-webview.sh",
+    "dev:webview:template": "bash ./scripts/dev-webview.sh",
     "generate:app-identity": "bun run scripts/generate-app-identity.ts",
     "build": "bun run build:ext",
     "build:ext": "bun run generate:app-identity && bun run build:host",
     "build:host": "bun build src/extension/extension.ts --outdir out/extension --format=cjs --target=node --external vscode --sourcemap",
-    "build:webview": "bash -lc 'cd src/webview && bun run build'",
+    "build:webview:template": "bash -lc 'cd src/webview && bun run build'",
     "typecheck": "bun run generate:app-identity && tsgo -p ./",
     "typecheck:watch": "tsgo -watch -p ./",
     "lint": "oxlint src/extension src/webview/src",
@@ -53,7 +53,7 @@
     "release": "bash ./scripts/release.sh patch",
     "release:minor": "bash ./scripts/release.sh minor",
     "vscode:prepublish": "echo skipped",
-    "build:ext:full": "bun run generate:app-identity && bun run build:host & bun run build:webview & wait"
+    "build:ext:full": "bun run build:ext"
   },
   "dependencies": {
     "@jsonrpc-rx/server": "^0.2.1",
@@ -83,21 +83,18 @@
         "icon": "$(settings-gear)"
       },
       {
-        "command": "work.openApp",
-        "title": "Work: Open App",
-        "icon": "$(screen-full)"
-      },
-      {
-        "command": "work.runDevWebview",
-        "title": "Work: Run Webview Dev Server"
-      },
-      {
         "command": "work.restartExtensionHost",
         "title": "Work: Restart Extension Host"
       },
       {
-        "command": "work.reloadWebviews",
-        "title": "Work: Reload Webviews"
+        "command": "work.openBrowser",
+        "title": "Work: Open Browser",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "work.refreshBrowser",
+        "title": "Work: Refresh Browser",
+        "icon": "$(refresh)"
       },
       {
         "command": "work.syncEnvToSettings",
@@ -168,7 +165,7 @@
     "viewsWelcome": [
       {
         "view": "workIssues",
-        "contents": "Sign in to Jira to view your sprint issues.\\n[Open App](command:work.openApp)"
+        "contents": "Sign in to Jira to view your sprint issues.\\nUse Refresh to update the explorer."
       }
     ],
     "menus": {
@@ -180,16 +177,16 @@
           "icon": "$(comment-discussion)"
         },
         {
-          "command": "work.openApp",
-          "when": "view == workIssues",
-          "group": "navigation",
-          "icon": "$(screen-full)"
-        },
-        {
           "command": "work.refreshStoryTasks",
           "when": "view == workIssues",
           "group": "navigation@2",
           "icon": "$(refresh)"
+        },
+        {
+          "command": "work.openBrowser",
+          "when": "view == workIssues",
+          "group": "navigation@3",
+          "icon": "$(globe)"
         }
       ],
       "view/item/context": [
@@ -284,10 +281,10 @@
         },
         "work.explorer.refreshIntervalMs": {
           "type": "number",
-          "default": 10000,
+          "default": 0,
           "minimum": 0,
           "maximum": 300000,
-          "description": "Auto-refresh interval for Work Explorer in milliseconds. Set to 0 to disable. Default: 10000 (10s)."
+          "description": "Legacy polling fallback for Work Explorer in milliseconds. Default: 0 because explorer refresh is event-driven."
         },
         "work.docsPath": {
           "type": "string",
@@ -297,12 +294,12 @@
         "work.webviewPath": {
           "type": "string",
           "default": "",
-          "description": "Optional local HTML path for live-refresh webview. Changes to the file will reload the panel."
+          "description": "Template-only local HTML path for the dormant webview scaffold."
         },
         "work.webviewServerUrl": {
           "type": "string",
           "default": "",
-          "description": "Optional server URL (e.g. http://localhost:5173) for HMR webview loading."
+          "description": "Template-only server URL (e.g. http://localhost:5173) for dormant webview HMR experiments."
         },
         "work.policy.identityKind": {
           "type": "string",

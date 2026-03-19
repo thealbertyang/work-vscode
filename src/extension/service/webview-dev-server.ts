@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "child_process";
 import * as vscode from "vscode";
 import { buildEnvKeys } from "../../shared/app-identity";
 
-const COMMAND = "bun run dev:webview";
+const COMMAND = "bun run dev:webview:template";
 const OUTPUT_CHANNEL_NAME = "Work Webview Server";
 const FORCE_KILL_TIMEOUT_MS = 2000;
 const WEBVIEW_PORT_ENV_KEYS = buildEnvKeys("WEBVIEW_PORT");

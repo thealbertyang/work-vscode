@@ -18,6 +18,7 @@ import { buildAgentTerminalTitle, openOrReuseAgentTerminal, launchAgentDirectly,
 import { spawnAgentViaWorkMcp } from "./service/work-mcp-client";
 import { openWorkBrowser, refreshWorkBrowser } from "./service/integrated-browser";
 import { VSCODE_COMMANDS } from "../shared/contracts";
+import { log } from "./providers/data/jira/logger";
 
 const LEGACY_START_TASK_TERMINAL_COMMANDS = [
   "atlassian.startDevTaskTerminal",
@@ -231,6 +232,13 @@ function registerCommandSafely(
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  // MCP status bar — first thing, before anything else can fail
+  const mcpStatus = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  mcpStatus.text = "$(globe) Work";
+  mcpStatus.tooltip = "Work MCP: initializing...";
+  mcpStatus.show();
+  context.subscriptions.push(mcpStatus);
+
   let provider: WorkspaceIssuesProvider | undefined;
   let client: JiraClient | undefined;
   let scheduledRefresh: ReturnType<typeof setTimeout> | null = null;
@@ -458,6 +466,54 @@ export function activate(context: vscode.ExtensionContext): void {
     });
   }
 
+  // Work MCP connection status bar — created before try/catch so it always shows
+  log("[work] creating MCP status bar item");
+  const mcpStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  mcpStatusBar.command = VSCODE_COMMANDS.OPEN_BROWSER;
+  mcpStatusBar.text = "$(sync~spin) Work MCP";
+  mcpStatusBar.show();
+  log("[work] status bar item created and shown");
+  context.subscriptions.push(mcpStatusBar);
+
+  const setMcpConnected = () => {
+    mcpStatusBar.text = "$(check) Work MCP";
+    mcpStatusBar.tooltip = "Work MCP: connected";
+    mcpStatusBar.backgroundColor = undefined;
+    mcpStatusBar.show();
+  };
+  const setMcpDisconnected = () => {
+    mcpStatusBar.text = "$(warning) Work MCP";
+    mcpStatusBar.tooltip = "Work MCP: disconnected — reconnecting...";
+    mcpStatusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+    mcpStatusBar.show();
+  };
+  setMcpDisconnected();
+
+  // Connect to WorkMCP WS — also before try/catch so it always reconnects
+  const mcpEvents = new WorkMcpEventListener({
+    onConnected: setMcpConnected,
+    onDisconnected: setMcpDisconnected,
+    onEvent: () => provider?.refresh(),
+    onTerminalOpen: () => provider?.refresh(),
+    onTerminalLaunch: (req) => {
+      const terminalOpts: vscode.TerminalOptions = {
+        name: req.title || "Agent",
+        cwd: req.cwd || workspaceRoot() || undefined,
+        iconPath: new vscode.ThemeIcon(req.icon || "copilot-large"),
+        color: new vscode.ThemeColor(req.color || "terminal.ansiYellow"),
+      };
+      if (req.env) terminalOpts.env = req.env;
+      if (req.shell) terminalOpts.shellPath = req.shell;
+      const terminal = vscode.window.createTerminal(terminalOpts);
+      terminal.sendText(`source "${req.script}"`);
+      terminal.show();
+      console.log(`[work] terminal:launch via WS: ${req.title}`);
+      provider?.refresh();
+    },
+  });
+  mcpEvents.start();
+  context.subscriptions.push(mcpEvents);
+
   try {
     const storage = new StorageService(context, "work");
     const policy = new PermissionPolicy();
@@ -487,50 +543,6 @@ export function activate(context: vscode.ExtensionContext): void {
       navigate: async () => {},
     });
     context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
-
-    // Work MCP connection status bar
-    const mcpStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 50);
-    mcpStatusBar.command = VSCODE_COMMANDS.OPEN_BROWSER;
-    context.subscriptions.push(mcpStatusBar);
-
-    const setMcpConnected = () => {
-      mcpStatusBar.text = "$(check) Work MCP";
-      mcpStatusBar.tooltip = "Work MCP: connected";
-      mcpStatusBar.backgroundColor = undefined;
-      mcpStatusBar.show();
-    };
-    const setMcpDisconnected = () => {
-      mcpStatusBar.text = "$(warning) Work MCP";
-      mcpStatusBar.tooltip = "Work MCP: disconnected — reconnecting...";
-      mcpStatusBar.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
-      mcpStatusBar.show();
-    };
-    setMcpDisconnected();
-
-    // Connect to WorkMCP WS to receive terminal events
-    const mcpEvents = new WorkMcpEventListener({
-      onConnected: setMcpConnected,
-      onDisconnected: setMcpDisconnected,
-      onEvent: () => scheduleProviderRefresh(),
-      onTerminalOpen: () => scheduleProviderRefresh(),
-      onTerminalLaunch: (req) => {
-        const terminalOpts: vscode.TerminalOptions = {
-          name: req.title || "Agent",
-          cwd: req.cwd || workspaceRoot() || undefined,
-          iconPath: new vscode.ThemeIcon(req.icon || "copilot-large"),
-          color: new vscode.ThemeColor(req.color || "terminal.ansiYellow"),
-        };
-        if (req.env) terminalOpts.env = req.env;
-        if (req.shell) terminalOpts.shellPath = req.shell;
-        const terminal = vscode.window.createTerminal(terminalOpts);
-        terminal.sendText(`source "${req.script}"`);
-        terminal.show();
-        console.log(`[work] terminal:launch via WS: ${req.title}`);
-        scheduleProviderRefresh();
-      },
-    });
-    mcpEvents.start();
-    context.subscriptions.push(mcpEvents);
 
     if (storyReader) {
       const decorations = new AgentDecorationProvider(storyReader);

@@ -24,6 +24,7 @@ import {
   spawnAgentViaWorkMcp,
 } from "../service/work-mcp-client";
 import { openOrReuseAgentTerminal, launchAgentDirectly } from "../service/agent-terminal";
+import { openWorkBrowser, refreshWorkBrowser } from "../service/integrated-browser";
 
 type DevDependencies = Pick<
   HandlerDependencies,
@@ -181,6 +182,8 @@ export const createDevHandlers = ({
       extensionInstaller.start(repoRoot);
     },
 
+    // Template-only webview helpers remain available for future app work, but they are
+    // not part of the active explorer/command surface.
     runDevWebview: async () => {
       await showApp();
       const cwd = resolveWebviewRoot(context.extensionPath);
@@ -222,6 +225,14 @@ export const createDevHandlers = ({
       await commands.executeCommand("workbench.action.restartExtensionHost");
     },
 
+    openBrowser: async (target?: { url?: string; path?: string; section?: string } | string) => {
+      return openWorkBrowser(context, target);
+    },
+
+    refreshBrowser: async () => {
+      return refreshWorkBrowser(context);
+    },
+
     reloadWebviews: async () => {
       try {
         await commands.executeCommand("workbench.action.webview.reloadWebviews");
@@ -238,7 +249,7 @@ export const createDevHandlers = ({
       session?: string;
       windowIndex?: string;
     }) => {
-      const result = openOrReuseAgentTerminal({
+      const result = await openOrReuseAgentTerminal({
         tool: params?.tool,
         role: params?.role,
         story: params?.story,
@@ -295,7 +306,7 @@ export const createDevHandlers = ({
 
     buildWebview: () => {
       const cwd = resolveWebviewRoot(context.extensionPath) || context.extensionPath;
-      return runBuild("build:webview", cwd, buildWatcher);
+      return runBuild("build:webview:template", cwd, buildWatcher);
     },
   };
 };

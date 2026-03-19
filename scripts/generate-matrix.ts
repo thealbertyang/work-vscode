@@ -284,10 +284,11 @@ const rpcMap: Record<string, string> = {
   axiosGet: "http", axiosPost: "http", axiosPut: "http", axiosDelete: "http",
   saveApiToken: "auth", disconnect: "auth",
   getIssue: "issues", listIssues: "issues", openIssueInBrowser: "issues",
+  openBrowser: "theme", refreshBrowser: "theme",
   getTriageState: "triage", runTriage: "triage",
   getDocsIndex: "docs", getDocContent: "docs", revealDocAsset: "docs", openDocInEditor: "docs",
-  openSettings: "settings", syncEnvToSettings: "dev", reinstallExtension: "dev", runDevWebview: "dev",
-  restartExtensionHost: "dev", reloadWebviews: "dev", startTaskTerminal: "dev",
+  openSettings: "settings", syncEnvToSettings: "dev", reinstallExtension: "dev",
+  restartExtensionHost: "dev", startTaskTerminal: "dev",
   buildExtension: "dev", buildWebview: "dev",
   getAutomations: "automations", getAutomationRuns: "automations",
   getUniversalConfig: "universal", getFullConfig: "config",
@@ -296,7 +297,15 @@ const rpcMap: Record<string, string> = {
 for (const r of rpcMethods) mod(rpcMap[r.id] ?? "app").rpc.push(r.id);
 for (const c of vscodeCommands) {
   const s = c.id.replace("work.", "");
-  const m = s.match(/issue/i) ? "issues" : s.match(/dev|webview|reinstall|restart|reload|sync/i) ? "dev" : s.match(/login|logout/i) ? "auth" : "app";
+  const m = s.match(/browser/i)
+    ? "theme"
+    : s.match(/issue/i)
+      ? "issues"
+      : s.match(/dev|webview|reinstall|restart|reload|sync/i)
+        ? "dev"
+        : s.match(/login|logout/i)
+          ? "auth"
+          : "app";
   mod(m).commands.push(c.id);
 }
 for (const e of ipcEvents) mod("app").events.push(e.id);
@@ -326,7 +335,6 @@ const spaceAggs: SpaceAgg[] = SPACES.map((space) => {
 // Proposed naming convention mapping
 const proposedNames: { current: string; proposed: string; space: string }[] = [
   // kernel
-  { current: "work.openApp", proposed: "work.kernel.app.open", space: "kernel" },
   { current: "work.refresh", proposed: "work.kernel.app.refresh", space: "kernel" },
   { current: "showInformation", proposed: "kernel.app.showInformation", space: "kernel" },
   { current: "execCommand", proposed: "kernel.app.execCommand", space: "kernel" },
@@ -352,7 +360,6 @@ const proposedNames: { current: string; proposed: string; space: string }[] = [
   { current: "setTheme", proposed: "ui.theme.set", space: "ui" },
   // system
   { current: "openSettings", proposed: "system.settings.open", space: "system" },
-  { current: "work.runDevWebview", proposed: "work.system.dev.runWebview", space: "system" },
   { current: "getDocsIndex", proposed: "system.docs.getIndex", space: "system" },
   { current: "getUniversalConfig", proposed: "system.config.get", space: "system" },
 ];
@@ -428,7 +435,7 @@ table(
     ["**Action**", "A resolved intent with concrete effect target(s)", "`{ id: \"work.identity.login\", vscode: \"work.login\" }`"],
     ["**Envelope**", "Transport-agnostic message wrapper", "`{ kind: \"rpc\", method: \"getIssue\" }`"],
     ["**Route**", "A navigation target in the webview router", "`{ path: \"/plan\", stage: \"plan\" }`"],
-    ["**Command**", "An imperative operation on the extension host", "`work.openApp`"],
+    ["**Command**", "An imperative operation on the extension host", "`work.refresh`"],
     ["**RPC**", "A request/response method across the IPC bridge", "`getIssue` → `IpcEnvelope{kind:\"rpc\"}`"],
     ["**Signal**", "An observable event emitted from webview", "`work.webview.ready`"],
     ["**Setting**", "A typed configuration knob with env-key binding", "`work.baseUrl` → `WORK_BASE_URL`"],
@@ -707,8 +714,8 @@ const intentExamples: Record<string, string> = {
   route: "app://work/route/plan", doc: "app://work/doc/docs/routing-matrix.md",
   runbook: "app://work/runbook/release-promotion", plan: "app://work/plan/2026-02-06-universal-config-plan",
   skill: "app://work/skill/release-promotion", automation: "app://work/automation/skill-triage",
-  command: "app://work/command/openApp", rpc: "app://work/rpc/getUniversalConfig",
-  action: "app://work/action/app/open",
+  command: "app://work/command/refresh", rpc: "app://work/rpc/getUniversalConfig",
+  action: "app://work/action/app/refresh",
 };
 const intentRuntimes: Record<string, string> = {
   route: "webview", doc: "webview", runbook: "webview", plan: "webview", skill: "webview",
@@ -893,7 +900,7 @@ if (process.argv.includes("--json")) {
     proposedNames, totalOperations,
   }, null, 2));
 } else {
-  const outPath = join(ROOT, "docs/agents/app-matrix.md");
+  const outPath = join(ROOT, ".claude/docs/app-matrix.md");
   await Bun.write(outPath, markdown);
   console.log(`Written to ${outPath}`);
   console.log(`  Spaces: ${spaceAggs.map((s) => `${s.label}(${s.total})`).join(" · ")}`);

@@ -243,8 +243,8 @@ export const createConfigHandlers = ({
           auto: { description: "Executes without confirmation", risk: "high" },
         },
         platforms: {
-          vscode: "VS Code webview panel",
-          web: "Browser at localhost:5173 via WS bridge",
+          vscode: "VS Code explorer and command surface",
+          web: "Dormant browser template via WS bridge",
           cli: "CLI via codex/claude-code",
         },
       },
