@@ -54,7 +54,7 @@ async function resolveOpenableWorkBrowserUrl(target?: string): Promise<string | 
   return `${normalizeBaseUrl(origin)}${path}`;
 }
 
-async function openUrl(url: string): Promise<void> {
+export async function openUrl(url: string): Promise<void> {
   const allCommands = await vscode.commands.getCommands(true);
 
   for (const cmd of BROWSER_COMMANDS) {

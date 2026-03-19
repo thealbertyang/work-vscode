@@ -1,5 +1,6 @@
-import { env, Uri, window } from "vscode";
+import { window } from "vscode";
 import type { HandlerDependencies } from "./types";
+import { openUrl } from "../service/integrated-browser";
 
 type IssueDependencies = Pick<HandlerDependencies, "client">;
 
@@ -24,6 +25,6 @@ export const createIssueHandlers = ({ client }: IssueDependencies) => ({
       window.showErrorMessage("Please login to open issues.");
       return;
     }
-    await env.openExternal(Uri.parse(url));
+    await openUrl(url);
   },
 });

@@ -180,7 +180,8 @@ async function openIssueInBrowser(client: JiraClient, issue: JiraIssue): Promise
     vscode.window.showWarningMessage("Sign in to Work/Jira before opening issues.");
     return;
   }
-  await vscode.env.openExternal(vscode.Uri.parse(url));
+  const { openUrl } = await import("./service/integrated-browser");
+  await openUrl(url);
 }
 
 async function launchStoryAgent(
