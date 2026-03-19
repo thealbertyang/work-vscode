@@ -14,9 +14,19 @@ function normalizeWindowIndex(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
+export type TerminalLaunchRequest = {
+  script: string;
+  title?: string;
+  cwd?: string;
+  env?: Record<string, string>;
+  shell?: string;
+  color?: string;
+  icon?: string;
+};
+
 /**
  * Subscribe to Work MCP live events and open agent terminals on
- * `terminal:open` notifications.
+ * `terminal:open` and `terminal:launch` notifications.
  */
 export class WorkMcpEventListener implements Disposable {
   private ws: WebSocket | null = null;
@@ -25,7 +35,10 @@ export class WorkMcpEventListener implements Disposable {
   private endpointIndex = 0;
   private readonly endpoints = resolveWorkMcpEventEndpoints();
 
-  constructor(private readonly opts: { onTerminalOpen?: () => void } = {}) {}
+  constructor(private readonly opts: {
+    onTerminalOpen?: () => void;
+    onTerminalLaunch?: (req: TerminalLaunchRequest) => void;
+  } = {}) {}
 
   start(): void {
     log(`[work-mcp-events] starting listener (${this.endpoints.length} endpoint${this.endpoints.length === 1 ? "" : "s"})`);
@@ -73,6 +86,28 @@ export class WorkMcpEventListener implements Disposable {
   private handleMessage(text: string): void {
     try {
       const data = JSON.parse(text) as Record<string, unknown>;
+
+      if (data.type === "terminal:launch") {
+        // Payload may be at top level (direct WS) or inside stringified `payload` (event bus)
+        const inner = typeof data.payload === "string"
+          ? JSON.parse(data.payload) as Record<string, unknown>
+          : data;
+        const req: TerminalLaunchRequest = {
+          script: (inner.script as string) || "",
+          title: (inner.title as string) || undefined,
+          cwd: (inner.cwd as string) || undefined,
+          env: (inner.env && typeof inner.env === "object") ? inner.env as Record<string, string> : undefined,
+          shell: (inner.shell as string) || undefined,
+          color: (inner.color as string) || undefined,
+          icon: (inner.icon as string) || undefined,
+        };
+        if (req.script) {
+          log(`[work-mcp-events] terminal:launch title=${req.title ?? "-"} cwd=${req.cwd ?? "-"}`);
+          this.opts.onTerminalLaunch?.(req);
+        }
+        return;
+      }
+
       if (data.type !== "terminal:open") return;
 
       const session = typeof data.session === "string" ? data.session : "";

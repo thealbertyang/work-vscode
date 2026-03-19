@@ -386,14 +386,38 @@ export function activate(context: vscode.ExtensionContext): void {
     terminal.show();
   });
 
-  // ── File-based IPC: watch for agent launch requests ──
-  // work-agent writes /tmp/work-agent-launch-*.json with { script, title }
-  // The extension picks them up, opens a VS Code terminal, and deletes the request.
+  // ── File-based IPC fallback for agent launch requests ──
+  // Fallback when WS is disconnected. Producers write /tmp/work-agent-launch-*.json.
+  // Extension picks them up, opens a VS Code terminal, and deletes the request.
+  // JSON shape is generic — any key/value pairs are accepted. Required: `script`.
   {
     const fs = require("fs");
     const path = require("path");
     const LAUNCH_DIR = "/tmp";
     const LAUNCH_PREFIX = "work-agent-launch-";
+
+    const launchTerminalFromRequest = (req: Record<string, unknown>) => {
+      const script = req.script as string || "";
+      if (!script) return;
+      const title = (req.title as string) || "Agent";
+      const root = workspaceRoot();
+      const terminalOpts: vscode.TerminalOptions = {
+        name: title,
+        cwd: (req.cwd as string) || root || undefined,
+        iconPath: new vscode.ThemeIcon((req.icon as string) || "copilot-large"),
+        color: new vscode.ThemeColor((req.color as string) || "terminal.ansiYellow"),
+      };
+      if (req.env && typeof req.env === "object") {
+        terminalOpts.env = req.env as Record<string, string>;
+      }
+      if (req.shell) {
+        terminalOpts.shellPath = req.shell as string;
+      }
+      const terminal = vscode.window.createTerminal(terminalOpts);
+      terminal.sendText(`source "${script}"`);
+      terminal.show();
+      console.log(`[work] launched terminal: ${title} (cwd: ${(req.cwd as string) || root || "default"})`);
+    };
 
     const processLaunchRequests = () => {
       try {
@@ -403,20 +427,7 @@ export function activate(context: vscode.ExtensionContext): void {
           const fullPath = path.join(LAUNCH_DIR, file);
           try {
             const req = JSON.parse(fs.readFileSync(fullPath, "utf-8"));
-            const script = req.script || "";
-            const title = req.title || "Agent";
-            if (script) {
-              const root = workspaceRoot();
-              const terminal = vscode.window.createTerminal({
-                name: title,
-                cwd: root || undefined,
-                iconPath: new vscode.ThemeIcon("copilot-large"),
-                color: new vscode.ThemeColor("terminal.ansiYellow"),
-              });
-              terminal.sendText(`source "${script}"`);
-              terminal.show();
-              console.log(`[work] launched agent terminal: ${title}`);
-            }
+            launchTerminalFromRequest(req);
             fs.unlinkSync(fullPath);
           } catch {}
         }
@@ -465,9 +476,24 @@ export function activate(context: vscode.ExtensionContext): void {
     });
     context.subscriptions.push(vscode.window.registerUriHandler(uriHandler));
 
-    // Connect to WorkMCP WS to receive terminal:open events
+    // Connect to WorkMCP WS to receive terminal events
     const mcpEvents = new WorkMcpEventListener({
       onTerminalOpen: () => provider?.refresh(),
+      onTerminalLaunch: (req) => {
+        const terminalOpts: vscode.TerminalOptions = {
+          name: req.title || "Agent",
+          cwd: req.cwd || workspaceRoot() || undefined,
+          iconPath: new vscode.ThemeIcon(req.icon || "copilot-large"),
+          color: new vscode.ThemeColor(req.color || "terminal.ansiYellow"),
+        };
+        if (req.env) terminalOpts.env = req.env;
+        if (req.shell) terminalOpts.shellPath = req.shell;
+        const terminal = vscode.window.createTerminal(terminalOpts);
+        terminal.sendText(`source "${req.script}"`);
+        terminal.show();
+        console.log(`[work] terminal:launch via WS: ${req.title}`);
+        provider?.refresh();
+      },
     });
     mcpEvents.start();
     context.subscriptions.push(mcpEvents);
@@ -478,6 +504,15 @@ export function activate(context: vscode.ExtensionContext): void {
       context.subscriptions.push(decorations);
       context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorations));
       context.subscriptions.push(storyReader.watch(() => provider?.refresh()));
+    }
+
+    // Auto-refresh explorer on interval for agent session state changes
+    const refreshIntervalMs = vscode.workspace
+      .getConfiguration("work")
+      .get<number>("explorer.refreshIntervalMs", 10_000);
+    if (refreshIntervalMs > 0) {
+      const refreshTimer = setInterval(() => provider?.refresh(), refreshIntervalMs);
+      context.subscriptions.push({ dispose: () => clearInterval(refreshTimer) });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
